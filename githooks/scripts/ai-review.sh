@@ -209,7 +209,7 @@ PY
         || warn "[ai-review] failed to send macOS desktop notification"
     elif command -v powershell.exe >/dev/null 2>&1; then
       AI_REVIEW_DESKTOP_MESSAGE="$summary" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-        "[reflection.assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:AI_REVIEW_DESKTOP_MESSAGE,'AI Commit Review') | Out-Null" \
+        "[reflection.assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show(\$env:AI_REVIEW_DESKTOP_MESSAGE,'AI Commit Review') | Out-Null" \
         >/dev/null 2>&1 \
         || warn "[ai-review] failed to send Windows desktop notification"
     elif command -v notify-send >/dev/null 2>&1; then
