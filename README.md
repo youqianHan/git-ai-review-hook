@@ -91,12 +91,13 @@ AI_REVIEW_BASE_URL=https://example.com/v1/chat/completions
 
 ```bash
 AI_REVIEW_DESKTOP_NOTIFY=true
+AI_REVIEW_DESKTOP_NOTIFY_SECONDS=8
 ```
 
 支持：
 
 - macOS：`osascript` 系统通知
-- Windows：PowerShell 桌面提示
+- Windows：PowerShell 自定义右下角通知，支持自动关闭，点击打开 review 报告
 - Linux：`notify-send`
 
 团队通知推荐飞书、企业微信或钉钉机器人，配置一个 webhook 即可。

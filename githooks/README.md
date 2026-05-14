@@ -103,9 +103,10 @@ never   # 不发送通知
 
 ```bash
 AI_REVIEW_DESKTOP_NOTIFY=true
+AI_REVIEW_DESKTOP_NOTIFY_SECONDS=8
 ```
 
-支持 macOS `osascript`、Windows PowerShell 和 Linux `notify-send`。
+支持 macOS `osascript`、Windows PowerShell 自定义右下角通知和 Linux `notify-send`。Windows 通知会自动关闭，点击通知主体可打开 review 报告。
 
 ### 飞书
 

@@ -46,6 +46,7 @@ load_config "$repo_root/.ai-review.env"
 : "${AI_REVIEW_REPORT_DIR:=.git/ai-review}"
 : "${AI_REVIEW_NOTIFY_ON:=always}"
 : "${AI_REVIEW_NOTIFY_PREVIEW_LINES:=80}"
+: "${AI_REVIEW_DESKTOP_NOTIFY_SECONDS:=8}"
 : "${AI_REVIEW_ASYNC:=true}"
 : "${AI_REVIEW_JOB_ID:=latest}"
 
@@ -208,9 +209,41 @@ PY
       osascript -e "display notification \"$(printf '%s' "$summary" | sed 's/"/\\"/g')\" with title \"AI Commit Review\"" >/dev/null 2>&1 \
         || warn "[ai-review] failed to send macOS desktop notification"
     elif command -v powershell.exe >/dev/null 2>&1; then
-      AI_REVIEW_DESKTOP_MESSAGE="$summary" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
-        "[reflection.assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show(\$env:AI_REVIEW_DESKTOP_MESSAGE,'AI Commit Review') | Out-Null" \
-        >/dev/null 2>&1 \
+      notify_script="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/show-windows-notification.ps1"
+      notify_report_path="$report_file"
+      case "$notify_report_path" in
+        /* | [A-Za-z]:*)
+          ;;
+        *)
+          notify_report_path="$repo_root/$notify_report_path"
+          ;;
+      esac
+      notify_status="$("$py_cmd" - "$message_file" "$status" <<'PY'
+import pathlib
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+runtime_status = sys.argv[2].strip().upper()
+first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+if runtime_status == "ERROR":
+    print("ERROR")
+elif "FAIL" in first_line.upper():
+    print("FAIL")
+else:
+    print("PASS")
+PY
+)"
+      if [ -f "$notify_script" ]; then
+        powershell.exe -NoProfile -Sta -ExecutionPolicy Bypass -WindowStyle Hidden \
+          -File "$notify_script" \
+          -Title "AI Commit Review" \
+          -Message "$summary" \
+          -Status "$notify_status" \
+          -ReportPath "$notify_report_path" \
+          -Seconds "$AI_REVIEW_DESKTOP_NOTIFY_SECONDS" >/dev/null 2>&1 &
+      else
+        warn "[ai-review] Windows notification script not found: $notify_script"
+      fi \
         || warn "[ai-review] failed to send Windows desktop notification"
     elif command -v notify-send >/dev/null 2>&1; then
       notify-send "AI Commit Review" "$summary" >/dev/null 2>&1 \

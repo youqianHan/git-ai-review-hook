@@ -60,6 +60,7 @@ write_config() {
     printf '%s\n' ""
     printf '%s\n' "AI_REVIEW_NOTIFY_ON=$notify_on"
     printf '%s\n' "AI_REVIEW_DESKTOP_NOTIFY=$desktop_notify"
+    printf '%s\n' "AI_REVIEW_DESKTOP_NOTIFY_SECONDS=$desktop_notify_seconds"
     [ -n "${feishu_webhook:-}" ] && printf '%s\n' "AI_REVIEW_FEISHU_WEBHOOK=$feishu_webhook"
     [ -n "${wechat_webhook:-}" ] && printf '%s\n' "AI_REVIEW_WECHAT_WEBHOOK=$wechat_webhook"
     [ -n "${dingtalk_webhook:-}" ] && printf '%s\n' "AI_REVIEW_DINGTALK_WEBHOOK=$dingtalk_webhook"
@@ -137,6 +138,8 @@ notify_on="$(ask_choice "Notify when" "always fail error never" "$(get_existing 
 [ -n "$notify_on" ] || notify_on="always"
 desktop_notify="$(ask_choice "Enable desktop notification" "true false" "$(get_existing AI_REVIEW_DESKTOP_NOTIFY || true)")"
 [ -n "$desktop_notify" ] || desktop_notify="true"
+desktop_notify_seconds="$(get_existing AI_REVIEW_DESKTOP_NOTIFY_SECONDS || true)"
+[ -n "$desktop_notify_seconds" ] || desktop_notify_seconds="8"
 notify_type="$(ask_choice "Notification channel" "none feishu wechat dingtalk email" "none")"
 
 case "$notify_type" in

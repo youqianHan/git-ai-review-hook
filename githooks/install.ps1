@@ -92,7 +92,8 @@ function Write-EnvFile {
         "AI_REVIEW_TIMEOUT_SECONDS=90",
         "",
         "AI_REVIEW_NOTIFY_ON=$($Config.AI_REVIEW_NOTIFY_ON)",
-        "AI_REVIEW_DESKTOP_NOTIFY=$($Config.AI_REVIEW_DESKTOP_NOTIFY)"
+        "AI_REVIEW_DESKTOP_NOTIFY=$($Config.AI_REVIEW_DESKTOP_NOTIFY)",
+        "AI_REVIEW_DESKTOP_NOTIFY_SECONDS=$($Config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS)"
     )
 
     if ($Config.AI_REVIEW_FEISHU_WEBHOOK) {
@@ -292,6 +293,7 @@ $config.AI_REVIEW_MODEL = Read-Default "AI model" (Get-ExistingOrDefault $existi
 $config.AI_REVIEW_API_KEY = Read-SecretText "AI API key" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
 $config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
 $config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
+$config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS = Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY_SECONDS" "8"
 
 $notifyType = Read-Choice "Notification channel" @("none", "feishu", "wechat", "dingtalk", "email") "none"
 

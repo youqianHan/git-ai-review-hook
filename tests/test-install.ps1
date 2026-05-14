@@ -6,6 +6,7 @@ Set-Location $root
 [scriptblock]::Create((Get-Content -Raw ".\githooks\install.ps1")) | Out-Null
 [scriptblock]::Create((Get-Content -Raw ".\githooks\uninstall.ps1")) | Out-Null
 [scriptblock]::Create((Get-Content -Raw ".\githooks\scripts\run-ai-review-background.ps1")) | Out-Null
+[scriptblock]::Create((Get-Content -Raw ".\githooks\scripts\show-windows-notification.ps1")) | Out-Null
 [scriptblock]::Create((Get-Content -Raw ".\githooks\scripts\test-ai-review-env.ps1")) | Out-Null
 [scriptblock]::Create((Get-Content -Raw ".\bootstrap.ps1")) | Out-Null
 [scriptblock]::Create((Get-Content -Raw ".\scripts\package-release.ps1")) | Out-Null
