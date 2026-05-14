@@ -9,7 +9,7 @@
 - 只审查 `git diff --cached`，也就是本次提交的暂存区代码。
 - 支持 OpenAI-compatible `/v1/chat/completions` 接口。
 - 默认不执行 Maven、Gradle、npm 等本地构建命令。
-- 支持邮件、企业微信、钉钉通知。
+- 支持桌面通知、飞书、邮件、企业微信、钉钉通知。
 - 邮件支持纯文本 + HTML 彩色格式。
 - 默认不阻塞 commit；如果需要，也可以配置 AI 返回 `FAIL` 时阻止提交。
 - 日志和报告写入 `.git/ai-review/`。
@@ -83,6 +83,29 @@ AI_REVIEW_ASYNC=true
 ```bash
 AI_REVIEW_BASE_URL=https://example.com/v1
 AI_REVIEW_BASE_URL=https://example.com/v1/chat/completions
+```
+
+## 推荐通知方式
+
+最简单的是桌面通知，不需要邮箱授权码或 webhook：
+
+```bash
+AI_REVIEW_DESKTOP_NOTIFY=true
+```
+
+支持：
+
+- macOS：`osascript` 系统通知
+- Windows：PowerShell 桌面提示
+- Linux：`notify-send`
+
+团队通知推荐飞书、企业微信或钉钉机器人，配置一个 webhook 即可。
+
+## 飞书通知
+
+```bash
+AI_REVIEW_NOTIFY_ON=always
+AI_REVIEW_FEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
 ```
 
 ## 邮件通知示例
@@ -211,7 +234,7 @@ git config core.hooksPath
 
 ## English Summary
 
-AI Review Git Hook reviews staged code changes during `git commit` and sends results through email, WeCom, or DingTalk. It runs asynchronously by default, so commits return quickly while review and notifications continue in the background.
+AI Review Git Hook reviews staged code changes during `git commit` and sends results through desktop notification, Feishu, email, WeCom, or DingTalk. It runs asynchronously by default, so commits return quickly while review and notifications continue in the background.
 
 One-line install:
 

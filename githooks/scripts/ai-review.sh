@@ -182,6 +182,90 @@ send_notifications() {
       ;;
   esac
 
+  if [ "${AI_REVIEW_DESKTOP_NOTIFY:-false}" = "true" ]; then
+    py_cmd="$(python_cmd)"
+    if [ -n "$py_cmd" ]; then
+      summary="$("$py_cmd" - "$message_file" <<'PY'
+import pathlib
+import sys
+
+text = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace")
+lines = [line.strip() for line in text.splitlines() if line.strip()]
+title = lines[0] if lines else "AI Commit Review"
+detail = ""
+for line in lines[1:]:
+    if line.startswith("- ") and "无" not in line:
+        detail = line[2:]
+        break
+print((title + (" - " + detail if detail else ""))[:180])
+PY
+)"
+    else
+      summary="AI Commit Review finished"
+    fi
+
+    if command -v osascript >/dev/null 2>&1; then
+      osascript -e "display notification \"$(printf '%s' "$summary" | sed 's/"/\\"/g')\" with title \"AI Commit Review\"" >/dev/null 2>&1 \
+        || warn "[ai-review] failed to send macOS desktop notification"
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      AI_REVIEW_DESKTOP_MESSAGE="$summary" powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \
+        "[reflection.assembly]::LoadWithPartialName('System.Windows.Forms') | Out-Null; [System.Windows.Forms.MessageBox]::Show($env:AI_REVIEW_DESKTOP_MESSAGE,'AI Commit Review') | Out-Null" \
+        >/dev/null 2>&1 \
+        || warn "[ai-review] failed to send Windows desktop notification"
+    elif command -v notify-send >/dev/null 2>&1; then
+      notify-send "AI Commit Review" "$summary" >/dev/null 2>&1 \
+        || warn "[ai-review] failed to send Linux desktop notification"
+    fi
+  fi
+
+  if [ -n "${AI_REVIEW_FEISHU_WEBHOOK:-}" ]; then
+    py_cmd="$(python_cmd)"
+    if [ -n "$py_cmd" ]; then
+      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/feishu-payload.json" <<'PY'
+import json
+import pathlib
+import sys
+
+message_path = pathlib.Path(sys.argv[1])
+repo_root = pathlib.Path(sys.argv[2])
+try:
+    max_lines = max(1, int(sys.argv[3]))
+except ValueError:
+    max_lines = 80
+text = message_path.read_text(encoding="utf-8", errors="replace")
+preview = "\n".join(text.splitlines()[:max_lines])
+first_line = next((line for line in text.splitlines() if line.strip()), "")
+payload = {
+    "msg_type": "interactive",
+    "card": {
+        "config": {"wide_screen_mode": True},
+        "header": {
+            "title": {"tag": "plain_text", "content": "AI Commit Review"},
+            "template": "red" if "FAIL" in first_line.upper() else "green",
+        },
+        "elements": [
+            {"tag": "div", "text": {"tag": "lark_md", "content": f"**仓库**: {repo_root.name}"}},
+            {"tag": "hr"},
+            {"tag": "div", "text": {"tag": "lark_md", "content": preview}},
+        ],
+    },
+}
+print(json.dumps(payload, ensure_ascii=False))
+PY
+      then
+        curl -sS --max-time 15 \
+          -H "Content-Type: application/json" \
+          -X POST "$AI_REVIEW_FEISHU_WEBHOOK" \
+          --data-binary "@$AI_REVIEW_REPORT_DIR/feishu-payload.json" >/dev/null \
+          || warn "[ai-review] failed to send Feishu notification"
+      else
+        warn "[ai-review] failed to build Feishu notification payload"
+      fi
+    else
+      warn "[ai-review] python is not available, skip Feishu notification"
+    fi
+  fi
+
   if [ -n "${AI_REVIEW_WECHAT_WEBHOOK:-}" ]; then
     py_cmd="$(python_cmd)"
     if [ -n "$py_cmd" ]; then

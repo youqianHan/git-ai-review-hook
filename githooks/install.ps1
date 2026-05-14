@@ -91,9 +91,13 @@ function Write-EnvFile {
         "AI_REVIEW_MAX_DIFF_BYTES=120000",
         "AI_REVIEW_TIMEOUT_SECONDS=90",
         "",
-        "AI_REVIEW_NOTIFY_ON=$($Config.AI_REVIEW_NOTIFY_ON)"
+        "AI_REVIEW_NOTIFY_ON=$($Config.AI_REVIEW_NOTIFY_ON)",
+        "AI_REVIEW_DESKTOP_NOTIFY=$($Config.AI_REVIEW_DESKTOP_NOTIFY)"
     )
 
+    if ($Config.AI_REVIEW_FEISHU_WEBHOOK) {
+        $lines += "AI_REVIEW_FEISHU_WEBHOOK=$($Config.AI_REVIEW_FEISHU_WEBHOOK)"
+    }
     if ($Config.AI_REVIEW_WECHAT_WEBHOOK) {
         $lines += "AI_REVIEW_WECHAT_WEBHOOK=$($Config.AI_REVIEW_WECHAT_WEBHOOK)"
     }
@@ -287,10 +291,13 @@ $config.AI_REVIEW_BASE_URL = Read-Default "AI base URL" (Get-ExistingOrDefault $
 $config.AI_REVIEW_MODEL = Read-Default "AI model" (Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini")
 $config.AI_REVIEW_API_KEY = Read-SecretText "AI API key" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
 $config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
+$config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
 
-$notifyType = Read-Choice "Notification channel" @("none", "wechat", "dingtalk", "email") "none"
+$notifyType = Read-Choice "Notification channel" @("none", "feishu", "wechat", "dingtalk", "email") "none"
 
-if ($notifyType -eq "wechat") {
+if ($notifyType -eq "feishu") {
+    $config.AI_REVIEW_FEISHU_WEBHOOK = Read-Default "Feishu robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_FEISHU_WEBHOOK" "")
+} elseif ($notifyType -eq "wechat") {
     $config.AI_REVIEW_WECHAT_WEBHOOK = Read-Default "WeCom robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_WECHAT_WEBHOOK" "")
 } elseif ($notifyType -eq "dingtalk") {
     $config.AI_REVIEW_DINGTALK_WEBHOOK = Read-Default "DingTalk robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_DINGTALK_WEBHOOK" "")

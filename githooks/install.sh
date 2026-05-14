@@ -59,6 +59,8 @@ write_config() {
     printf '%s\n' "AI_REVIEW_TIMEOUT_SECONDS=90"
     printf '%s\n' ""
     printf '%s\n' "AI_REVIEW_NOTIFY_ON=$notify_on"
+    printf '%s\n' "AI_REVIEW_DESKTOP_NOTIFY=$desktop_notify"
+    [ -n "${feishu_webhook:-}" ] && printf '%s\n' "AI_REVIEW_FEISHU_WEBHOOK=$feishu_webhook"
     [ -n "${wechat_webhook:-}" ] && printf '%s\n' "AI_REVIEW_WECHAT_WEBHOOK=$wechat_webhook"
     [ -n "${dingtalk_webhook:-}" ] && printf '%s\n' "AI_REVIEW_DINGTALK_WEBHOOK=$dingtalk_webhook"
     if [ -n "${email_to:-}" ]; then
@@ -133,9 +135,14 @@ model="$(ask_default "AI model" "$(get_existing AI_REVIEW_MODEL || true)")"
 ai_key="$(ask_default "AI API key" "$(get_existing AI_REVIEW_API_KEY || true)")"
 notify_on="$(ask_choice "Notify when" "always fail error never" "$(get_existing AI_REVIEW_NOTIFY_ON || true)")"
 [ -n "$notify_on" ] || notify_on="always"
-notify_type="$(ask_choice "Notification channel" "none wechat dingtalk email" "none")"
+desktop_notify="$(ask_choice "Enable desktop notification" "true false" "$(get_existing AI_REVIEW_DESKTOP_NOTIFY || true)")"
+[ -n "$desktop_notify" ] || desktop_notify="true"
+notify_type="$(ask_choice "Notification channel" "none feishu wechat dingtalk email" "none")"
 
 case "$notify_type" in
+  feishu)
+    feishu_webhook="$(ask_default "Feishu robot webhook" "$(get_existing AI_REVIEW_FEISHU_WEBHOOK || true)")"
+    ;;
   wechat)
     wechat_webhook="$(ask_default "WeCom robot webhook" "$(get_existing AI_REVIEW_WECHAT_WEBHOOK || true)")"
     ;;

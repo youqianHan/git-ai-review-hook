@@ -30,6 +30,7 @@ $inputText = @(
     "gpt-test",
     "test-key",
     "never",
+    "false",
     "none"
 ) -join [Environment]::NewLine
 
@@ -68,6 +69,7 @@ $bootstrapInput = @(
     "gpt-test",
     "test-key",
     "never",
+    "false",
     "none"
 ) -join [Environment]::NewLine
 $bootstrapInput + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1")

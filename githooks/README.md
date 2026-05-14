@@ -9,7 +9,7 @@
 - 默认后台异步执行 AI review，commit 不等待网络请求。
 - AI 接口失败时只提示，不阻止 commit。
 - AI review 结果会保存到 `.git/ai-review/last-review.md`。
-- 可选发送企业微信、钉钉或邮件通知。
+- 可选发送桌面通知、飞书、企业微信、钉钉或邮件通知。
 
 ## 文件说明
 
@@ -99,6 +99,21 @@ error   # 只有 AI 接口异常或响应格式异常时通知
 never   # 不发送通知
 ```
 
+### 桌面通知
+
+```bash
+AI_REVIEW_DESKTOP_NOTIFY=true
+```
+
+支持 macOS `osascript`、Windows PowerShell 和 Linux `notify-send`。
+
+### 飞书
+
+```bash
+AI_REVIEW_NOTIFY_ON=always
+AI_REVIEW_FEISHU_WEBHOOK=https://open.feishu.cn/open-apis/bot/v2/hook/xxx
+```
+
 ### 企业微信
 
 ```bash
@@ -145,7 +160,7 @@ IDEA 提交成功时，Git hook 的 stdout/stderr 不一定明显展示。通常
 - Version Control / Git 控制台
 - `.git/ai-review/last-review.md`
 
-如果配置了邮件、企业微信或钉钉，建议以通知为准。
+如果配置了桌面通知、飞书、邮件、企业微信或钉钉，建议以通知为准。
 
 ## 输出文件
 
