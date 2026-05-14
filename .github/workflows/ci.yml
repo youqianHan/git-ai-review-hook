@@ -12,6 +12,11 @@ jobs:
       - name: Run PowerShell tests
         shell: powershell
         run: powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\test-install.ps1
+      - name: Upload release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: git-ai-review-hook
+          path: dist/git-ai-review-hook.zip
 
   ubuntu:
     runs-on: ubuntu-latest
@@ -19,6 +24,19 @@ jobs:
       - uses: actions/checkout@v4
       - name: Shell syntax
         run: |
+          sh -n bootstrap.sh
+          sh -n githooks/install.sh
+          sh -n githooks/uninstall.sh
+          sh -n githooks/pre-commit
+          sh -n githooks/scripts/ai-review.sh
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: |
+          sh -n bootstrap.sh
           sh -n githooks/install.sh
           sh -n githooks/uninstall.sh
           sh -n githooks/pre-commit

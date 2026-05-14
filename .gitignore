@@ -2,3 +2,4 @@
 .git/ai-review/
 *.log
 *.tmp
+dist/

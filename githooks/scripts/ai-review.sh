@@ -9,6 +9,16 @@ warn() {
   printf '%s\n' "$*" >&2
 }
 
+python_cmd() {
+  if command -v python >/dev/null 2>&1; then
+    printf '%s\n' "python"
+  elif command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' "python3"
+  else
+    printf '%s\n' ""
+  fi
+}
+
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
 
@@ -173,8 +183,9 @@ send_notifications() {
   esac
 
   if [ -n "${AI_REVIEW_WECHAT_WEBHOOK:-}" ]; then
-    if command -v python >/dev/null 2>&1; then
-      if python - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/wechat-payload.json" <<'PY'
+    py_cmd="$(python_cmd)"
+    if [ -n "$py_cmd" ]; then
+      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/wechat-payload.json" <<'PY'
 import json
 import pathlib
 import sys
@@ -210,8 +221,9 @@ PY
   fi
 
   if [ -n "${AI_REVIEW_DINGTALK_WEBHOOK:-}" ]; then
-    if command -v python >/dev/null 2>&1; then
-      if python - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/dingtalk-payload.json" <<'PY'
+    py_cmd="$(python_cmd)"
+    if [ -n "$py_cmd" ]; then
+      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/dingtalk-payload.json" <<'PY'
 import json
 import pathlib
 import sys
@@ -248,7 +260,8 @@ PY
   fi
 
   if [ -n "${AI_REVIEW_EMAIL_TO:-}" ]; then
-    if command -v python >/dev/null 2>&1; then
+    py_cmd="$(python_cmd)"
+    if [ -n "$py_cmd" ]; then
       export AI_REVIEW_SMTP_HOST
       export AI_REVIEW_SMTP_PORT
       export AI_REVIEW_SMTP_USERNAME
@@ -257,7 +270,7 @@ PY
       export AI_REVIEW_EMAIL_TO
       export AI_REVIEW_SMTP_SSL
       export AI_REVIEW_SMTP_STARTTLS
-      python - "$message_file" "$repo_root" <<'PY' || warn "[ai-review] failed to send email notification"
+      "$py_cmd" - "$message_file" "$repo_root" <<'PY' || warn "[ai-review] failed to send email notification"
 import html
 import os
 import pathlib
@@ -404,15 +417,16 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 0
 fi
 
-if ! command -v python >/dev/null 2>&1; then
-  warn "[ai-review] python is not available."
+PY_CMD="$(python_cmd)"
+if [ -z "$PY_CMD" ]; then
+  warn "[ai-review] python/python3 is not available."
   if [ "$AI_REVIEW_REQUIRE_API" = "true" ]; then
     exit 1
   fi
   exit 0
 fi
 
-python - "$diff_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
+"$PY_CMD" - "$diff_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
 import json
 import pathlib
 import sys
@@ -508,7 +522,7 @@ if [ "$http_code" != "200" ]; then
   exit 0
 fi
 
-if ! python - "$response_file" "$report_file" <<'PY'
+if ! "$PY_CMD" - "$response_file" "$report_file" <<'PY'
 import json
 import pathlib
 import sys

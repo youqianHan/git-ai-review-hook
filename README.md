@@ -15,6 +15,32 @@ It is asynchronous by default: commit returns quickly, while AI review and notif
 
 ## Quick Start
 
+One-line install from GitHub release:
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.ps1 | iex
+```
+
+macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.sh | sh
+```
+
+Install a fixed version:
+
+```bash
+AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.sh | sh
+```
+
+For local testing with a zip file:
+
+```bash
+AI_REVIEW_HOOK_ZIP=/path/to/git-ai-review-hook.zip sh bootstrap.sh
+```
+
 Copy `githooks/` into a target repository, then run:
 
 ```powershell
@@ -128,6 +154,12 @@ Run local checks:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tests\test-install.ps1
+```
+
+Build a release zip:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
 ```
 
 ```bash
