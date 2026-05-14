@@ -113,6 +113,16 @@ $hint.Location = New-Object System.Drawing.Point(22, 108)
 $hint.Size = New-Object System.Drawing.Size(180, 20)
 $form.Controls.Add($hint)
 
+$hoverHint = New-Object System.Windows.Forms.Label
+$hoverHint.Text = "Hover to keep open"
+$hoverHint.Font = New-Object System.Drawing.Font("Segoe UI", 8.25)
+$hoverHint.ForeColor = [System.Drawing.Color]::FromArgb(156, 163, 175)
+$hoverHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+$hoverHint.AutoSize = $false
+$hoverHint.Location = New-Object System.Drawing.Point(202, 108)
+$hoverHint.Size = New-Object System.Drawing.Size(162, 20)
+$form.Controls.Add($hoverHint)
+
 $openReport = {
     if (-not [string]::IsNullOrWhiteSpace($ReportPath) -and (Test-Path -LiteralPath $ReportPath)) {
         Start-Process -FilePath $ReportPath | Out-Null
@@ -120,16 +130,34 @@ $openReport = {
     }
 }
 
-foreach ($control in @($form, $titleLabel, $messageLabel, $hint, $badge)) {
+foreach ($control in @($form, $titleLabel, $messageLabel, $hint, $hoverHint, $badge)) {
     $control.Cursor = [System.Windows.Forms.Cursors]::Hand
     $control.Add_Click($openReport)
 }
 
+$isMouseInside = {
+    $point = $form.PointToClient([System.Windows.Forms.Cursor]::Position)
+    return ($point.X -ge 0 -and $point.Y -ge 0 -and $point.X -lt $form.Width -and $point.Y -lt $form.Height)
+}
+
+$remainingMs = $Seconds * 1000
+$lastTick = [Environment]::TickCount
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = $Seconds * 1000
+$timer.Interval = 250
 $timer.Add_Tick({
-    $timer.Stop()
-    $form.Close()
+    $now = [Environment]::TickCount
+    $elapsed = $now - $script:lastTick
+    $script:lastTick = $now
+
+    if (& $script:isMouseInside) {
+        return
+    }
+
+    $script:remainingMs -= $elapsed
+    if ($script:remainingMs -le 0) {
+        $timer.Stop()
+        $form.Close()
+    }
 })
 
 $form.Add_Shown({ $timer.Start() })
