@@ -1,0 +1,61 @@
+#!/usr/bin/env sh
+set -eu
+
+HOOK_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+REPORT_DIR="$REPO_ROOT/.git/ai-review"
+CONFIG_FILE="$REPO_ROOT/.ai-review.env"
+ASYNC_ENABLED="true"
+
+if [ -f "$HOME/.ai-review.env" ]; then
+  # shellcheck disable=SC1090
+  . "$HOME/.ai-review.env"
+fi
+
+if [ -f "$CONFIG_FILE" ]; then
+  # shellcheck disable=SC1090
+  . "$CONFIG_FILE"
+fi
+
+: "${AI_REVIEW_ASYNC:=true}"
+
+if [ "$AI_REVIEW_ASYNC" != "true" ]; then
+  exec "$HOOK_DIR/scripts/ai-review.sh"
+fi
+
+if git diff --cached --quiet --exit-code; then
+  printf '%s\n' "[ai-review] skipped: no staged changes"
+  exit 0
+fi
+
+mkdir -p "$REPORT_DIR/jobs"
+JOB_ID="$(date +%Y%m%d%H%M%S)-$$"
+JOB_DIR="$REPORT_DIR/jobs/$JOB_ID"
+mkdir -p "$JOB_DIR"
+
+git diff --cached --binary --diff-filter=ACMRTUXB > "$JOB_DIR/staged.diff"
+
+{
+  printf '%s\n' "repo_root=$REPO_ROOT"
+  printf '%s\n' "job_id=$JOB_ID"
+  printf '%s\n' "diff_file=$JOB_DIR/staged.diff"
+} > "$JOB_DIR/job.env"
+
+if command -v powershell.exe >/dev/null 2>&1; then
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden \
+    -File "$HOOK_DIR/scripts/run-ai-review-background.ps1" \
+    -RepoRoot "$REPO_ROOT" \
+    -HookDir "$HOOK_DIR" \
+    -JobId "$JOB_ID" \
+    -DiffFile "$JOB_DIR/staged.diff" >/dev/null 2>&1 &
+else
+  (
+    AI_REVIEW_JOB_ID="$JOB_ID" \
+    AI_REVIEW_DIFF_FILE="$JOB_DIR/staged.diff" \
+    "$HOOK_DIR/scripts/ai-review.sh" > "$JOB_DIR/background.log" 2>&1
+  ) &
+fi
+
+printf '%s\n' "[ai-review] queued background review: $JOB_ID"
+printf '%s\n' "[ai-review] result will be written to: .git/ai-review/last-review.md"
+exit 0

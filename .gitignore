@@ -1,0 +1,4 @@
+.ai-review.env
+.git/ai-review/
+*.log
+*.tmp
