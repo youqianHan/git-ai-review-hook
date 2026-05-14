@@ -1,70 +1,74 @@
 # AI Review Git Hook
 
-AI Review Git Hook reviews staged code changes during `git commit` and sends the result by email, WeCom, or DingTalk.
+一个可复用的 AI 代码审查 Git Hook。它会在 `git commit` 时读取本次暂存区 diff，异步调用 OpenAI 兼容接口做代码 review，并把结果写入本地日志，也可以通过邮件、企业微信或钉钉通知。
 
-It is asynchronous by default: commit returns quickly, while AI review and notifications continue in the background.
+默认是异步执行：commit 会很快完成，AI review 和通知在后台继续运行。
 
-## Features
+## 功能特性
 
-- Reviews only `git diff --cached`.
-- Uses an OpenAI-compatible `/v1/chat/completions` endpoint.
-- Does not run Maven, Gradle, npm, or other local build commands by default.
-- Sends optional notifications through email, WeCom, or DingTalk.
-- Writes logs and reports under `.git/ai-review/`.
-- Includes diagnostics for Python, Git Bash, API connectivity, and SMTP.
+- 只审查 `git diff --cached`，也就是本次提交的暂存区代码。
+- 支持 OpenAI-compatible `/v1/chat/completions` 接口。
+- 默认不执行 Maven、Gradle、npm 等本地构建命令。
+- 支持邮件、企业微信、钉钉通知。
+- 邮件支持纯文本 + HTML 彩色格式。
+- 默认不阻塞 commit；如果需要，也可以配置 AI 返回 `FAIL` 时阻止提交。
+- 日志和报告写入 `.git/ai-review/`。
+- 提供诊断脚本，检查 Git Bash、Python、AI API、SMTP 等环境。
 
-## Quick Start
+## 一键安装
 
-One-line install from GitHub release:
+在目标项目根目录执行。
 
-Windows PowerShell:
+Windows PowerShell：
 
 ```powershell
-irm https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.ps1 | iex
 ```
 
-macOS/Linux:
+macOS / Linux：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
 ```
 
-Install a fixed version:
+安装指定版本：
 
 ```bash
-AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/<owner>/git-ai-review-hook/main/bootstrap.sh | sh
+AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
 ```
 
-For local testing with a zip file:
+本地 zip 测试：
 
 ```bash
 AI_REVIEW_HOOK_ZIP=/path/to/git-ai-review-hook.zip sh bootstrap.sh
 ```
 
-Copy `githooks/` into a target repository, then run:
+安装脚本会：
+
+- 检查 Git、Git Bash、Python、curl。
+- 设置 `git config core.hooksPath githooks`。
+- 自动把 `.ai-review.env` 和 `/githooks/` 加入 `.gitignore`。
+- 交互式生成或更新 `.ai-review.env`。
+
+## 手动安装
+
+也可以手动复制 `githooks/` 到目标项目根目录，然后执行：
 
 ```powershell
 .\githooks\install.ps1
 ```
 
-Or on Git Bash/Linux/macOS:
+或：
 
 ```bash
 sh githooks/install.sh
 ```
 
-The installer:
+## 配置
 
-- Checks Git, Git Bash, Python, and curl.
-- Sets `git config core.hooksPath githooks`.
-- Adds `.ai-review.env` and `/githooks/` to `.gitignore`.
-- Creates or updates `.ai-review.env`.
+`.ai-review.env` 是本地配置文件，不要提交到仓库。
 
-## Configuration
-
-`.ai-review.env` is local and must not be committed.
-
-Minimum:
+最小配置：
 
 ```bash
 AI_REVIEW_ENABLED=true
@@ -74,42 +78,74 @@ AI_REVIEW_BASE_URL=https://example.com/v1
 AI_REVIEW_ASYNC=true
 ```
 
-Email example:
+`AI_REVIEW_BASE_URL` 支持两种格式：
+
+```bash
+AI_REVIEW_BASE_URL=https://example.com/v1
+AI_REVIEW_BASE_URL=https://example.com/v1/chat/completions
+```
+
+## 邮件通知示例
+
+QQ 邮箱：
 
 ```bash
 AI_REVIEW_NOTIFY_ON=always
-AI_REVIEW_EMAIL_TO=dev@example.com
-AI_REVIEW_EMAIL_FROM=dev@example.com
+AI_REVIEW_EMAIL_TO=dev@qq.com
+AI_REVIEW_EMAIL_FROM=dev@qq.com
 AI_REVIEW_SMTP_HOST=smtp.qq.com
 AI_REVIEW_SMTP_PORT=465
-AI_REVIEW_SMTP_USERNAME=dev@example.com
+AI_REVIEW_SMTP_USERNAME=dev@qq.com
 AI_REVIEW_SMTP_PASSWORD=replace_with_smtp_auth_code
 AI_REVIEW_SMTP_STARTTLS=false
 AI_REVIEW_SMTP_SSL=true
 ```
 
-WeCom:
+163 邮箱：
 
 ```bash
+AI_REVIEW_NOTIFY_ON=always
+AI_REVIEW_EMAIL_TO=dev@163.com
+AI_REVIEW_EMAIL_FROM=dev@163.com
+AI_REVIEW_SMTP_HOST=smtp.163.com
+AI_REVIEW_SMTP_PORT=465
+AI_REVIEW_SMTP_USERNAME=dev@163.com
+AI_REVIEW_SMTP_PASSWORD=replace_with_smtp_auth_code
+AI_REVIEW_SMTP_STARTTLS=false
+AI_REVIEW_SMTP_SSL=true
+```
+
+说明：
+
+- `AI_REVIEW_SMTP_PASSWORD` 通常是邮箱 SMTP 授权码，不是网页登录密码。
+- 465 端口通常使用 `AI_REVIEW_SMTP_SSL=true` 和 `AI_REVIEW_SMTP_STARTTLS=false`。
+
+## 企业微信 / 钉钉
+
+企业微信机器人：
+
+```bash
+AI_REVIEW_NOTIFY_ON=always
 AI_REVIEW_WECHAT_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx
 ```
 
-DingTalk:
+钉钉机器人：
 
 ```bash
+AI_REVIEW_NOTIFY_ON=always
 AI_REVIEW_DINGTALK_WEBHOOK=https://oapi.dingtalk.com/robot/send?access_token=xxx
 ```
 
-Notification modes:
+通知触发模式：
 
 ```bash
-AI_REVIEW_NOTIFY_ON=always  # every review or error
-AI_REVIEW_NOTIFY_ON=fail    # only when AI returns FAIL
-AI_REVIEW_NOTIFY_ON=error   # only API/response errors
-AI_REVIEW_NOTIFY_ON=never   # disable notifications
+AI_REVIEW_NOTIFY_ON=always  # 每次 review 成功或异常都通知
+AI_REVIEW_NOTIFY_ON=fail    # 只有 AI 返回 FAIL 时通知
+AI_REVIEW_NOTIFY_ON=error   # 只有 API 或响应异常时通知
+AI_REVIEW_NOTIFY_ON=never   # 不通知
 ```
 
-## Output
+## 输出文件
 
 ```text
 .git/ai-review/last-review.md
@@ -118,35 +154,74 @@ AI_REVIEW_NOTIFY_ON=never   # disable notifications
 .git/ai-review/jobs/<job-id>/background.log
 ```
 
-## Diagnostics
+如果没收到通知，优先看最新 job 的 `background.log`。
 
-Run:
+## 诊断
+
+运行完整诊断：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\githooks\scripts\test-ai-review-env.ps1
 ```
 
-Without sending mail:
+不发送测试邮件：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\githooks\scripts\test-ai-review-env.ps1 -SendMail false
 ```
 
-## Uninstall
+只排查 Git Bash / Python / Hook 路径：
 
-Windows:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\githooks\scripts\test-ai-review-env.ps1 -SendMail false -TestAi false
+```
+
+## 卸载
+
+Windows：
 
 ```powershell
 .\githooks\uninstall.ps1
 ```
 
-POSIX shell:
+macOS / Linux：
 
 ```bash
 sh githooks/uninstall.sh
 ```
 
-This removes `core.hooksPath=githooks` and keeps local files for manual cleanup.
+卸载脚本会移除：
+
+```bash
+git config core.hooksPath
+```
+
+但会保留本地 `githooks/` 和 `.ai-review.env`，如不再需要可手动删除。
+
+## 安全说明
+
+该工具会把本次暂存区 diff 发送给你配置的 AI 服务。使用前请确认你的团队允许把代码变更发送到该服务。
+
+不要提交：
+
+- `.ai-review.env`
+- API Key
+- SMTP 授权码
+- 企业微信或钉钉 webhook
+
+## English Summary
+
+AI Review Git Hook reviews staged code changes during `git commit` and sends results through email, WeCom, or DingTalk. It runs asynchronously by default, so commits return quickly while review and notifications continue in the background.
+
+One-line install:
+
+```powershell
+irm https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.ps1 | iex
+```
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
+```
 
 ## Development
 
@@ -162,7 +237,10 @@ Build a release zip:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-release.ps1
 ```
 
+Shell syntax:
+
 ```bash
+sh -n bootstrap.sh
 sh -n githooks/install.sh
 sh -n githooks/pre-commit
 sh -n githooks/scripts/ai-review.sh

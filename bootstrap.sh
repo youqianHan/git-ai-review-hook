@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-REPO_SLUG="${AI_REVIEW_HOOK_REPO:-OWNER/git-ai-review-hook}"
+REPO_SLUG="${AI_REVIEW_HOOK_REPO:-youqianHan/git-ai-review-hook}"
 VERSION="${AI_REVIEW_HOOK_VERSION:-latest}"
 LOCAL_ZIP="${AI_REVIEW_HOOK_ZIP:-}"
 

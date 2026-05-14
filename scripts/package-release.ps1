@@ -10,12 +10,16 @@ if (Test-Path $dist) {
 New-Item -ItemType Directory -Path $dist | Out-Null
 
 $zip = Join-Path $dist "git-ai-review-hook.zip"
-$staging = Join-Path $dist "package"
+$staging = Join-Path $env:TEMP ("git-ai-review-hook-package-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $staging | Out-Null
 
-Copy-Item -Path "githooks" -Destination $staging -Recurse
-Copy-Item -Path "README.md", "SECURITY.md", "LICENSE", "CHANGELOG.md" -Destination $staging
+try {
+    Copy-Item -Path "githooks" -Destination $staging -Recurse
+    Copy-Item -Path "README.md", "SECURITY.md", "LICENSE", "CHANGELOG.md" -Destination $staging
 
-Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $zip -Force
+    Compress-Archive -Path (Join-Path $staging "*") -DestinationPath $zip -Force
 
-Write-Host "Created $zip"
+    Write-Host "Created $zip"
+} finally {
+    Remove-Item -Recurse -Force $staging -ErrorAction SilentlyContinue
+}

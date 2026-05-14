@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$repoSlug = if ($env:AI_REVIEW_HOOK_REPO) { $env:AI_REVIEW_HOOK_REPO } else { "OWNER/git-ai-review-hook" }
+$repoSlug = if ($env:AI_REVIEW_HOOK_REPO) { $env:AI_REVIEW_HOOK_REPO } else { "youqianHan/git-ai-review-hook" }
 $version = if ($env:AI_REVIEW_HOOK_VERSION) { $env:AI_REVIEW_HOOK_VERSION } else { "latest" }
 $localZip = $env:AI_REVIEW_HOOK_ZIP
 
