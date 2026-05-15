@@ -92,11 +92,22 @@ function Show-ReportWindow {
     $viewer.BackColor = [System.Drawing.Color]::White
     $viewer.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 
+    $layout = New-Object System.Windows.Forms.TableLayoutPanel
+    $layout.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $layout.BackColor = [System.Drawing.Color]::White
+    $layout.ColumnCount = 1
+    $layout.RowCount = 3
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 78)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    [void]$layout.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Absolute, 58)))
+    [void]$layout.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100)))
+    $viewer.Controls.Add($layout)
+
     $header = New-Object System.Windows.Forms.Panel
-    $header.Dock = [System.Windows.Forms.DockStyle]::Top
-    $header.Height = 72
+    $header.Dock = [System.Windows.Forms.DockStyle]::Fill
     $header.BackColor = [System.Drawing.Color]::White
-    $viewer.Controls.Add($header)
+    $header.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layout.Controls.Add($header, 0, 0)
 
     $headerAccent = New-Object System.Windows.Forms.Panel
     $headerAccent.Dock = [System.Windows.Forms.DockStyle]::Left
@@ -118,7 +129,8 @@ function Show-ReportWindow {
     $pathLabel.ForeColor = [System.Drawing.Color]::FromArgb(107, 114, 128)
     $pathLabel.AutoEllipsis = $true
     $pathLabel.Location = New-Object System.Drawing.Point(22, 40)
-    $pathLabel.Size = New-Object System.Drawing.Size(600, 20)
+    $pathLabel.Size = New-Object System.Drawing.Size(($viewer.ClientSize.Width - 170), 20)
+    $pathLabel.Anchor = [System.Windows.Forms.AnchorStyles]::Left -bor [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
     $header.Controls.Add($pathLabel)
 
     $viewerBadge = New-Object System.Windows.Forms.Label
@@ -132,6 +144,13 @@ function Show-ReportWindow {
     $viewerBadge.Size = New-Object System.Drawing.Size(72, 28)
     $header.Controls.Add($viewerBadge)
 
+    $bodyPanel = New-Object System.Windows.Forms.Panel
+    $bodyPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $bodyPanel.BackColor = [System.Drawing.Color]::White
+    $bodyPanel.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 8)
+    $bodyPanel.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layout.Controls.Add($bodyPanel, 0, 1)
+
     $body = New-Object System.Windows.Forms.TextBox
     $body.Multiline = $true
     $body.ReadOnly = $true
@@ -143,14 +162,13 @@ function Show-ReportWindow {
     $body.BackColor = [System.Drawing.Color]::FromArgb(249, 250, 251)
     $body.Text = $reportText
     $body.Dock = [System.Windows.Forms.DockStyle]::Fill
-    $viewer.Controls.Add($body)
+    $bodyPanel.Controls.Add($body)
 
     $footer = New-Object System.Windows.Forms.Panel
-    $footer.Dock = [System.Windows.Forms.DockStyle]::Bottom
-    $footer.Height = 56
+    $footer.Dock = [System.Windows.Forms.DockStyle]::Fill
     $footer.BackColor = [System.Drawing.Color]::FromArgb(249, 250, 251)
-    $viewer.Controls.Add($footer)
-    $footer.BringToFront()
+    $footer.Margin = New-Object System.Windows.Forms.Padding(0)
+    $layout.Controls.Add($footer, 0, 2)
 
     $copyButton = New-Object System.Windows.Forms.Button
     $copyButton.Text = "Copy"
@@ -176,13 +194,16 @@ function Show-ReportWindow {
     $closeButton.Text = "Close"
     $closeButton.Size = New-Object System.Drawing.Size(92, 30)
     $closeButton.Anchor = [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
-    $closeButton.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 112), 13)
+    $closeButton.Location = New-Object System.Drawing.Point(($footer.ClientSize.Width - 112), 13)
     $closeButton.Add_Click({ $viewer.Close() })
     $footer.Controls.Add($closeButton)
 
-    $viewer.Add_Resize({
-        $viewerBadge.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 102), 18)
-        $closeButton.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 112), 13)
+    $header.Add_Resize({
+        $viewerBadge.Location = New-Object System.Drawing.Point(($header.ClientSize.Width - 102), 18)
+        $pathLabel.Size = New-Object System.Drawing.Size(($header.ClientSize.Width - 170), 20)
+    })
+    $footer.Add_Resize({
+        $closeButton.Location = New-Object System.Drawing.Point(($footer.ClientSize.Width - 112), 13)
     })
 
     [void]$viewer.ShowDialog()
