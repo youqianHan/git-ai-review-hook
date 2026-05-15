@@ -76,6 +76,21 @@ request_file="$AI_REVIEW_REPORT_DIR/request.json"
 response_file="$AI_REVIEW_REPORT_DIR/response.json"
 notification_file="$AI_REVIEW_REPORT_DIR/notification.txt"
 
+utf8_base64() {
+  value="$1"
+  py_cmd="$(python_cmd)"
+  if [ -z "$py_cmd" ]; then
+    printf '%s\n' ""
+    return 0
+  fi
+  AI_REVIEW_B64_VALUE="$value" run_python "$py_cmd" - <<'PY'
+import base64
+import os
+
+print(base64.b64encode(os.environ.get("AI_REVIEW_B64_VALUE", "").encode("utf-8")).decode("ascii"))
+PY
+}
+
 chat_completions_url() {
   url="${AI_REVIEW_BASE_URL%/}"
   case "$url" in
@@ -242,12 +257,15 @@ else:
 PY
 )"
       if [ -f "$notify_script" ]; then
+        notify_title_b64="$(utf8_base64 "AI Commit Review")"
+        notify_message_b64="$(utf8_base64 "$summary")"
+        notify_report_path_b64="$(utf8_base64 "$notify_report_path")"
         powershell.exe -NoProfile -Sta -ExecutionPolicy Bypass -WindowStyle Hidden \
           -File "$notify_script" \
-          -Title "AI Commit Review" \
-          -Message "$summary" \
+          -TitleBase64 "$notify_title_b64" \
+          -MessageBase64 "$notify_message_b64" \
           -Status "$notify_status" \
-          -ReportPath "$notify_report_path" \
+          -ReportPathBase64 "$notify_report_path_b64" \
           -Seconds "$AI_REVIEW_DESKTOP_NOTIFY_SECONDS" >/dev/null 2>&1 &
       else
         warn "[ai-review] Windows notification script not found: $notify_script"

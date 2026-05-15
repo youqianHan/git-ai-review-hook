@@ -1,8 +1,11 @@
 param(
     [string]$Title = "AI Commit Review",
+    [string]$TitleBase64 = "",
     [string]$Message = "Review finished.",
+    [string]$MessageBase64 = "",
     [string]$Status = "PASS",
     [string]$ReportPath = "",
+    [string]$ReportPathBase64 = "",
     [int]$Seconds = 8
 )
 
@@ -10,6 +13,28 @@ $ErrorActionPreference = "SilentlyContinue"
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+
+function Decode-Utf8Base64 {
+    param(
+        [string]$Value,
+        [string]$Fallback
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $Fallback
+    }
+
+    try {
+        $bytes = [Convert]::FromBase64String($Value)
+        return [System.Text.Encoding]::UTF8.GetString($bytes)
+    } catch {
+        return $Fallback
+    }
+}
+
+$Title = Decode-Utf8Base64 -Value $TitleBase64 -Fallback $Title
+$Message = Decode-Utf8Base64 -Value $MessageBase64 -Fallback $Message
+$ReportPath = Decode-Utf8Base64 -Value $ReportPathBase64 -Fallback $ReportPath
 
 if ($Seconds -lt 2) {
     $Seconds = 2
