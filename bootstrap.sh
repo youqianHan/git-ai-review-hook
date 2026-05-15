@@ -2,9 +2,11 @@
 set -eu
 
 REPO_SLUG="${AI_REVIEW_HOOK_REPO:-youqianHan/git-ai-review-hook}"
+HOST_NAME="${AI_REVIEW_HOOK_HOST:-github}"
 VERSION="${AI_REVIEW_HOOK_VERSION:-latest}"
 LOCAL_ZIP="${AI_REVIEW_HOOK_ZIP:-}"
 INSTALL_SCOPE="${AI_REVIEW_HOOK_SCOPE:-}"
+LATEST_GITEE_VERSION="v0.1.5"
 
 fail() {
   printf '%s\n' "ERROR: $*" >&2
@@ -27,6 +29,10 @@ case "$INSTALL_SCOPE" in
   local|global) ;;
   *) fail "Invalid AI_REVIEW_HOOK_SCOPE: $INSTALL_SCOPE. Use local or global." ;;
 esac
+case "$HOST_NAME" in
+  github|gitee) ;;
+  *) fail "Invalid AI_REVIEW_HOOK_HOST: $HOST_NAME. Use github or gitee." ;;
+esac
 if [ -z "$repo_root" ] && [ "$INSTALL_SCOPE" != "global" ]; then
   fail "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global."
 fi
@@ -47,10 +53,16 @@ if [ -n "$LOCAL_ZIP" ]; then
   [ -f "$LOCAL_ZIP" ] || fail "Local zip not found: $LOCAL_ZIP"
   cp "$LOCAL_ZIP" "$zip_file"
 else
-  if [ "$VERSION" = "latest" ]; then
-    url="https://github.com/$REPO_SLUG/releases/latest/download/git-ai-review-hook.zip"
+  if [ "$HOST_NAME" = "gitee" ]; then
+    archive_version="$VERSION"
+    [ "$archive_version" = "latest" ] && archive_version="$LATEST_GITEE_VERSION"
+    url="https://gitee.com/$REPO_SLUG/repository/archive/$archive_version.zip"
   else
-    url="https://github.com/$REPO_SLUG/releases/download/$VERSION/git-ai-review-hook.zip"
+    if [ "$VERSION" = "latest" ]; then
+      url="https://github.com/$REPO_SLUG/releases/latest/download/git-ai-review-hook.zip"
+    else
+      url="https://github.com/$REPO_SLUG/releases/download/$VERSION/git-ai-review-hook.zip"
+    fi
   fi
 
   if need_cmd curl; then

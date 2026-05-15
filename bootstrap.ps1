@@ -5,9 +5,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoSlug = if ($env:AI_REVIEW_HOOK_REPO) { $env:AI_REVIEW_HOOK_REPO } else { "youqianHan/git-ai-review-hook" }
+$hostName = if ($env:AI_REVIEW_HOOK_HOST) { $env:AI_REVIEW_HOOK_HOST } else { "github" }
 $version = if ($env:AI_REVIEW_HOOK_VERSION) { $env:AI_REVIEW_HOOK_VERSION } else { "latest" }
 $localZip = $env:AI_REVIEW_HOOK_ZIP
 $installScope = if ($Scope) { $Scope } elseif ($env:AI_REVIEW_HOOK_SCOPE) { $env:AI_REVIEW_HOOK_SCOPE } else { "" }
+$latestGiteeVersion = "v0.1.5"
 
 function Read-Choice {
     param(
@@ -33,6 +35,10 @@ if ([string]::IsNullOrWhiteSpace($installScope)) {
 if ($installScope -notin @("local", "global")) {
     throw "Invalid AI_REVIEW_HOOK_SCOPE: $installScope. Use local or global."
 }
+$hostName = $hostName.Trim().ToLowerInvariant()
+if ($hostName -notin @("github", "gitee")) {
+    throw "Invalid AI_REVIEW_HOOK_HOST: $hostName. Use github or gitee."
+}
 if (-not $repoRoot -and $installScope -ne "global") {
     throw "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global."
 }
@@ -49,10 +55,15 @@ try {
         if (-not (Test-Path $localZip)) { throw "Local zip not found: $localZip" }
         Copy-Item $localZip $zipFile
     } else {
-        if ($version -eq "latest") {
-            $url = "https://github.com/$repoSlug/releases/latest/download/git-ai-review-hook.zip"
+        if ($hostName -eq "gitee") {
+            $archiveVersion = if ($version -eq "latest") { $latestGiteeVersion } else { $version }
+            $url = "https://gitee.com/$repoSlug/repository/archive/$archiveVersion.zip"
         } else {
-            $url = "https://github.com/$repoSlug/releases/download/$version/git-ai-review-hook.zip"
+            if ($version -eq "latest") {
+                $url = "https://github.com/$repoSlug/releases/latest/download/git-ai-review-hook.zip"
+            } else {
+                $url = "https://github.com/$repoSlug/releases/download/$version/git-ai-review-hook.zip"
+            }
         }
         Invoke-WebRequest -Uri $url -OutFile $zipFile
     }

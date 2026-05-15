@@ -31,10 +31,30 @@ macOS / Linux：
 curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
 ```
 
+Gitee 镜像安装：
+
+```powershell
+$env:AI_REVIEW_HOOK_HOST="gitee"
+$env:AI_REVIEW_HOOK_REPO="han_you_jin/git-ai-review-hook"
+irm https://gitee.com/han_you_jin/git-ai-review-hook/raw/main/bootstrap.ps1 | iex
+```
+
+```bash
+AI_REVIEW_HOOK_HOST=gitee AI_REVIEW_HOOK_REPO=han_you_jin/git-ai-review-hook \
+curl -fsSL https://gitee.com/han_you_jin/git-ai-review-hook/raw/main/bootstrap.sh | sh
+```
+
 安装指定版本：
 
 ```bash
 AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
+```
+
+Gitee 镜像不支持 GitHub 风格的 latest release 下载；当 `AI_REVIEW_HOOK_HOST=gitee` 且未指定版本时，脚本会下载当前内置的最新稳定版本。指定版本时使用：
+
+```bash
+AI_REVIEW_HOOK_HOST=gitee AI_REVIEW_HOOK_REPO=han_you_jin/git-ai-review-hook AI_REVIEW_HOOK_VERSION=v0.1.5 \
+curl -fsSL https://gitee.com/han_you_jin/git-ai-review-hook/raw/main/bootstrap.sh | sh
 ```
 
 全局安装，对当前用户的所有 Git 仓库生效：
