@@ -2,8 +2,8 @@
 set -eu
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$repo_root"
-
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+scope="${1:-${AI_REVIEW_HOOK_SCOPE:-}}"
 env_file=".ai-review.env"
 
 get_existing() {
@@ -130,11 +130,41 @@ ensure_dependencies() {
 }
 
 ensure_dependencies
-git config core.hooksPath githooks
-chmod +x githooks/pre-commit githooks/scripts/ai-review.sh 2>/dev/null || true
-ensure_gitignore
+if [ -z "$scope" ]; then
+  default_scope="local"
+  if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+    default_scope="global"
+  fi
+  scope="$(ask_choice "Install scope" "local global" "$default_scope")"
+fi
 
-printf '\nConfigure AI review hook for: %s\n' "$repo_root"
+case "$scope" in
+  local|global) ;;
+  *) printf '%s\n' "Invalid scope: $scope. Use local or global." >&2; exit 1 ;;
+esac
+
+if [ "$scope" = "local" ] && ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+  printf '%s\n' "Local install requires running inside a Git repository." >&2
+  exit 1
+fi
+
+if [ "$scope" = "global" ]; then
+  env_file="$HOME/.ai-review.env"
+  git config --global core.hooksPath "$script_dir"
+  chmod +x "$script_dir/pre-commit" "$script_dir/scripts/ai-review.sh" 2>/dev/null || true
+else
+  cd "$repo_root"
+  env_file=".ai-review.env"
+  git config core.hooksPath githooks
+  chmod +x githooks/pre-commit githooks/scripts/ai-review.sh 2>/dev/null || true
+  ensure_gitignore
+fi
+
+if [ "$scope" = "global" ]; then
+  printf '\nConfigure AI review hook for: global\n'
+else
+  printf '\nConfigure AI review hook for: %s\n' "$repo_root"
+fi
 printf 'Press Enter to keep the value shown in brackets.\n\n'
 
 base_url="$(ask_default "AI base URL" "$(get_existing AI_REVIEW_BASE_URL || true)")"
@@ -180,7 +210,16 @@ esac
 
 write_config
 
-printf '\nGit hooks installed for: %s\n' "$repo_root"
-printf '%s\n' "core.hooksPath=$(git config core.hooksPath)"
+if [ "$scope" = "global" ]; then
+  printf '\nGit hooks installed for: global\n'
+  printf '%s\n' "global core.hooksPath=$(git config --global core.hooksPath)"
+else
+  printf '\nGit hooks installed for: %s\n' "$repo_root"
+  printf '%s\n' "core.hooksPath=$(git config core.hooksPath)"
+fi
 printf '%s\n' "Config written to: $env_file"
-printf '%s\n' "Keep .ai-review.env ignored because it contains secrets."
+if [ "$scope" = "global" ]; then
+  printf '%s\n' "Global config is stored in your user home and is not part of project commits."
+else
+  printf '%s\n' "Keep .ai-review.env ignored because it contains secrets."
+fi

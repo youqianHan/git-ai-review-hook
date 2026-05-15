@@ -52,11 +52,19 @@ sh githooks/install.sh
 git config core.hooksPath githooks
 ```
 
+如果选择 `global`，会改为执行：
+
+```bash
+git config --global core.hooksPath <用户目录下的 githooks>
+```
+
 并交互生成本地配置文件：
 
 ```text
 .ai-review.env
 ```
+
+全局安装时配置文件为 `~/.ai-review.env`，对当前用户所有 Git 仓库生效；当前项目安装时配置文件为项目内 `.ai-review.env`。
 
 ## 交互配置项
 

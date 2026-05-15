@@ -1,3 +1,7 @@
+param(
+    [string]$Scope = ""
+)
+
 $ErrorActionPreference = "Stop"
 
 function Read-Default {
@@ -32,7 +36,11 @@ function Read-SecretText {
         return $choice.Trim()
     }
 
-    return (Read-Host $Prompt).Trim()
+    $value = Read-Host $Prompt
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return ""
+    }
+    return $value.Trim()
 }
 
 function Read-Choice {
@@ -118,8 +126,13 @@ function Write-EnvFile {
         )
     }
 
+    $targetPath = if ([System.IO.Path]::IsPathRooted($Path)) { $Path } else { Join-Path (Get-Location) $Path }
+    $parent = Split-Path -Parent $targetPath
+    if ($parent -and -not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText((Join-Path (Get-Location) $Path), (($lines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)
+    [System.IO.File]::WriteAllText($targetPath, (($lines -join [Environment]::NewLine) + [Environment]::NewLine), $utf8NoBom)
 }
 
 function Ensure-GitIgnore {
@@ -147,6 +160,15 @@ function Ensure-GitIgnore {
     } else {
         Write-Host ".gitignore already ignores .ai-review.env and /githooks/"
     }
+}
+
+function Ensure-LocalGitIgnore {
+    param([string]$Scope)
+
+    if ($Scope -eq "global") {
+        return
+    }
+    Ensure-GitIgnore
 }
 
 function Get-ExistingOrDefault {
@@ -326,21 +348,40 @@ function Ensure-Dependencies {
     Write-Host ""
 }
 
+$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = git rev-parse --show-toplevel 2>$null
-if (-not $repoRoot) {
-    $repoRoot = (Get-Location).Path
+if ([string]::IsNullOrWhiteSpace($Scope)) {
+    $defaultScope = if ($repoRoot) { "local" } else { "global" }
+    $Scope = Read-Choice "Install scope" @("local", "global") $defaultScope
+}
+if ($Scope -notin @("local", "global")) {
+    throw "Invalid scope: $Scope. Use local or global."
+}
+if ($Scope -eq "local" -and -not $repoRoot) {
+    throw "Local install requires running inside a Git repository."
 }
 
-Set-Location $repoRoot
+if ($repoRoot) {
+    Set-Location $repoRoot
+}
 Ensure-Dependencies
-git config core.hooksPath githooks
-Ensure-GitIgnore
 
-$envPath = ".ai-review.env"
+if ($Scope -eq "global") {
+    $hookPath = $scriptRoot
+    git config --global core.hooksPath $hookPath
+    $envPath = Join-Path $HOME ".ai-review.env"
+    $displayRoot = "global"
+} else {
+    git config core.hooksPath githooks
+    Ensure-LocalGitIgnore -Scope $Scope
+    $envPath = ".ai-review.env"
+    $displayRoot = $repoRoot
+}
+
 $existing = Read-EnvFile -Path $envPath
 
 Write-Host ""
-Write-Host "Configure AI review hook for: $repoRoot"
+Write-Host "Configure AI review hook for: $displayRoot"
 Write-Host "Press Enter to keep the value shown in brackets."
 Write-Host ""
 
@@ -374,7 +415,15 @@ if ($notifyType -eq "feishu") {
 Write-EnvFile -Path $envPath -Config $config
 
 Write-Host ""
-Write-Host "Git hooks installed for: $repoRoot"
-Write-Host "core.hooksPath=$(git config core.hooksPath)"
+Write-Host "Git hooks installed for: $displayRoot"
+if ($Scope -eq "global") {
+    Write-Host "global core.hooksPath=$(git config --global core.hooksPath)"
+} else {
+    Write-Host "core.hooksPath=$(git config core.hooksPath)"
+}
 Write-Host "Config written to: $envPath"
-Write-Host "Keep .ai-review.env ignored because it contains secrets."
+if ($Scope -eq "local") {
+    Write-Host "Keep .ai-review.env ignored because it contains secrets."
+} else {
+    Write-Host "Global config is stored in your user home and is not part of project commits."
+}

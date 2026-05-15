@@ -4,6 +4,7 @@ set -eu
 REPO_SLUG="${AI_REVIEW_HOOK_REPO:-youqianHan/git-ai-review-hook}"
 VERSION="${AI_REVIEW_HOOK_VERSION:-latest}"
 LOCAL_ZIP="${AI_REVIEW_HOOK_ZIP:-}"
+INSTALL_SCOPE="${AI_REVIEW_HOOK_SCOPE:-}"
 
 fail() {
   printf '%s\n' "ERROR: $*" >&2
@@ -15,8 +16,21 @@ need_cmd() {
 }
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$repo_root" ] || fail "Run this installer inside a Git repository."
-cd "$repo_root"
+if [ -z "$INSTALL_SCOPE" ]; then
+  default_scope="local"
+  [ -z "$repo_root" ] && default_scope="global"
+  printf '%s [%s]: ' "Install scope (local global)" "$default_scope" >&2
+  IFS= read -r INSTALL_SCOPE || INSTALL_SCOPE=""
+  [ -n "$INSTALL_SCOPE" ] || INSTALL_SCOPE="$default_scope"
+fi
+case "$INSTALL_SCOPE" in
+  local|global) ;;
+  *) fail "Invalid AI_REVIEW_HOOK_SCOPE: $INSTALL_SCOPE. Use local or global." ;;
+esac
+if [ -z "$repo_root" ] && [ "$INSTALL_SCOPE" != "global" ]; then
+  fail "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global."
+fi
+[ -n "$repo_root" ] && cd "$repo_root"
 
 if ! need_cmd unzip; then
   printf '%s\n' "unzip is required." >&2
@@ -60,7 +74,14 @@ if [ ! -d "$package_root/githooks" ]; then
   package_root="$(dirname "$nested")"
 fi
 
-rm -rf "$repo_root/githooks"
-cp -R "$package_root/githooks" "$repo_root/githooks"
+if [ "$INSTALL_SCOPE" = "global" ]; then
+  target="$HOME/.git-ai-review-hook/githooks"
+else
+  target="$repo_root/githooks"
+fi
 
-sh "$repo_root/githooks/install.sh"
+rm -rf "$target"
+mkdir -p "$(dirname "$target")"
+cp -R "$package_root/githooks" "$target"
+
+sh "$target/install.sh" "$INSTALL_SCOPE"

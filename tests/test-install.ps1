@@ -27,6 +27,7 @@ Copy-Item -Path ".\githooks" -Destination $tmp -Recurse
 Set-Location $tmp
 
 $inputText = @(
+    "local",
     "https://example.com/v1",
     "gpt-test",
     "test-key",
@@ -36,6 +37,9 @@ $inputText = @(
 ) -join [Environment]::NewLine
 
 $inputText + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File .\githooks\install.ps1
+if ($LASTEXITCODE -ne 0) {
+    throw "install.ps1 failed with exit code $LASTEXITCODE"
+}
 
 if ((git config core.hooksPath) -ne "githooks") {
     throw "core.hooksPath was not set"
@@ -65,6 +69,7 @@ New-Item -ItemType Directory -Path $bootstrapTmp | Out-Null
 git init $bootstrapTmp | Out-Null
 Set-Location $bootstrapTmp
 $env:AI_REVIEW_HOOK_ZIP = $zip
+$env:AI_REVIEW_HOOK_SCOPE = "local"
 $bootstrapInput = @(
     "https://example.com/v1",
     "gpt-test",
@@ -74,12 +79,83 @@ $bootstrapInput = @(
     "none"
 ) -join [Environment]::NewLine
 $bootstrapInput + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1")
+if ($LASTEXITCODE -ne 0) {
+    throw "bootstrap.ps1 failed with exit code $LASTEXITCODE"
+}
 if (-not (Test-Path "githooks\install.ps1")) {
     throw "bootstrap did not install githooks"
 }
 if ((git config core.hooksPath) -ne "githooks") {
     throw "bootstrap did not set core.hooksPath"
 }
-Remove-Item Env:\AI_REVIEW_HOOK_ZIP -ErrorAction SilentlyContinue
+Remove-Item Env:\AI_REVIEW_HOOK_ZIP,Env:\AI_REVIEW_HOOK_SCOPE -ErrorAction SilentlyContinue
+
+$globalTmp = Join-Path $env:TEMP ("ai-review-hook-global-ci-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $globalTmp | Out-Null
+$globalHome = Join-Path $globalTmp "home"
+New-Item -ItemType Directory -Path $globalHome | Out-Null
+$oldHome = $env:HOME
+$oldUserProfile = $env:USERPROFILE
+$oldGlobalHooksPath = git config --global core.hooksPath 2>$null
+try {
+    $env:HOME = $globalHome
+    $env:USERPROFILE = $globalHome
+    $globalRepo = Join-Path $globalTmp "repo"
+    New-Item -ItemType Directory -Path $globalRepo | Out-Null
+    git init $globalRepo | Out-Null
+    Set-Location $globalRepo
+    $env:AI_REVIEW_HOOK_ZIP = $zip
+    $env:AI_REVIEW_HOOK_SCOPE = "global"
+    $globalInput = @(
+        "https://example.com/v1",
+        "gpt-test",
+        "test-key",
+        "never",
+        "false",
+        "none"
+    ) -join [Environment]::NewLine
+    $globalInput + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        throw "global bootstrap.ps1 failed with exit code $LASTEXITCODE"
+    }
+    $globalHooks = git config --global core.hooksPath
+    if (-not $globalHooks -or -not (Test-Path (Join-Path $globalHooks "pre-commit"))) {
+        throw "global core.hooksPath was not set to an installed hook directory"
+    }
+    if (-not (Test-Path (Join-Path $globalHome ".ai-review.env"))) {
+        throw "global .ai-review.env was not created"
+    }
+
+    $hookRepo = Join-Path $globalTmp "hook-repo"
+    New-Item -ItemType Directory -Path $hookRepo | Out-Null
+    git init $hookRepo | Out-Null
+    Set-Location $hookRepo
+    [System.IO.File]::WriteAllText(
+        (Join-Path $globalHome ".ai-review.env"),
+        "AI_REVIEW_ASYNC=false`nAI_REVIEW_ENABLED=false`n",
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    Set-Content -Path "test.txt" -Value "test"
+    git add test.txt
+    $git = (Get-Command git.exe).Source
+    $gitRoot = Split-Path -Parent (Split-Path -Parent $git)
+    $sh = Join-Path $gitRoot "bin\sh.exe"
+    $hookOutput = & $sh (Join-Path $globalHooks "pre-commit") 2>&1
+    $hookText = $hookOutput -join "`n"
+    if ($LASTEXITCODE -ne 0 -or $hookText -notmatch "AI_REVIEW_ENABLED=false") {
+        throw "global pre-commit did not execute correctly: $hookText"
+    }
+} finally {
+    Remove-Item Env:\AI_REVIEW_HOOK_ZIP,Env:\AI_REVIEW_HOOK_SCOPE -ErrorAction SilentlyContinue
+    if ($oldGlobalHooksPath) {
+        git config --global core.hooksPath $oldGlobalHooksPath
+    } else {
+        git config --global --unset core.hooksPath 2>$null
+    }
+    $env:HOME = $oldHome
+    $env:USERPROFILE = $oldUserProfile
+    Set-Location $root
+    Remove-Item -LiteralPath $globalTmp -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "All tests passed."

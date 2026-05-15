@@ -17,7 +17,7 @@
 
 ## 一键安装
 
-在目标项目根目录执行。
+默认安装到当前项目，只对当前仓库生效；在目标项目根目录执行。
 
 Windows PowerShell：
 
@@ -37,6 +37,19 @@ curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/
 AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
 ```
 
+全局安装，对当前用户的所有 Git 仓库生效：
+
+```powershell
+$env:AI_REVIEW_HOOK_SCOPE="global"
+irm https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.ps1 | iex
+```
+
+```bash
+AI_REVIEW_HOOK_SCOPE=global curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
+```
+
+全局安装会把 hook 放到用户目录，并设置 `git config --global core.hooksPath`；配置写入 `~/.ai-review.env`。当前项目安装会设置当前仓库的 `core.hooksPath=githooks`，配置写入项目内 `.ai-review.env`。
+
 本地 zip 测试：
 
 ```bash
@@ -46,9 +59,9 @@ AI_REVIEW_HOOK_ZIP=/path/to/git-ai-review-hook.zip sh bootstrap.sh
 安装脚本会：
 
 - 检查 Git、Git Bash、curl，以及 Git Bash 内可实际执行的 Python 3。
-- 设置 `git config core.hooksPath githooks`。
-- 自动把 `.ai-review.env` 和 `/githooks/` 加入 `.gitignore`。
-- 交互式生成或更新 `.ai-review.env`。
+- 当前项目安装：设置 `git config core.hooksPath githooks`，并把 `.ai-review.env`、`/githooks/` 加入 `.gitignore`。
+- 全局安装：设置 `git config --global core.hooksPath <用户目录下的 githooks>`。
+- 交互式生成或更新本地配置文件。
 
 ## 手动安装
 
