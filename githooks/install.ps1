@@ -101,7 +101,9 @@ function Write-EnvFile {
         "",
         "AI_REVIEW_NOTIFY_ON=$($Config.AI_REVIEW_NOTIFY_ON)",
         "AI_REVIEW_DESKTOP_NOTIFY=$($Config.AI_REVIEW_DESKTOP_NOTIFY)",
-        "AI_REVIEW_DESKTOP_NOTIFY_SECONDS=$($Config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS)"
+        "AI_REVIEW_DESKTOP_NOTIFY_SECONDS=$($Config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS)",
+        "AI_REVIEW_DESKTOP_OPEN_MODE=$($Config.AI_REVIEW_DESKTOP_OPEN_MODE)",
+        "AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=$($Config.AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT)"
     )
 
     if ($Config.AI_REVIEW_FEISHU_WEBHOOK) {
@@ -392,6 +394,8 @@ $config.AI_REVIEW_API_KEY = Read-SecretText "AI API key" (Get-ExistingOrDefault 
 $config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
 $config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
 $config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS = Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY_SECONDS" "8"
+$config.AI_REVIEW_DESKTOP_OPEN_MODE = Read-Choice "Desktop report open mode" @("native", "file") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_OPEN_MODE" "native")
+$config.AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT = Read-Choice "Auto open report dialog on macOS" @("false", "true") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT" "false")
 
 $notifyType = Read-Choice "Notification channel" @("none", "feishu", "wechat", "dingtalk", "email") "none"
 

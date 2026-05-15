@@ -6,6 +6,7 @@ param(
     [string]$Status = "PASS",
     [string]$ReportPath = "",
     [string]$ReportPathBase64 = "",
+    [string]$OpenMode = "native",
     [int]$Seconds = 8
 )
 
@@ -35,6 +36,10 @@ function Decode-Utf8Base64 {
 $Title = Decode-Utf8Base64 -Value $TitleBase64 -Fallback $Title
 $Message = Decode-Utf8Base64 -Value $MessageBase64 -Fallback $Message
 $ReportPath = Decode-Utf8Base64 -Value $ReportPathBase64 -Fallback $ReportPath
+$OpenMode = "$OpenMode".Trim().ToLowerInvariant()
+if ($OpenMode -ne "file") {
+    $OpenMode = "native"
+}
 
 if ($Seconds -lt 2) {
     $Seconds = 2
@@ -62,6 +67,125 @@ switch ($statusText) {
         $badgeFore = [System.Drawing.Color]::FromArgb(21, 128, 61)
         $statusText = "PASS"
     }
+}
+
+function Get-ReportText {
+    if ([string]::IsNullOrWhiteSpace($ReportPath) -or -not (Test-Path -LiteralPath $ReportPath)) {
+        return "Review report file was not found.`r`n`r`nPath: $ReportPath"
+    }
+
+    try {
+        return [System.IO.File]::ReadAllText($ReportPath, [System.Text.Encoding]::UTF8)
+    } catch {
+        return "Failed to read review report.`r`n`r`nPath: $ReportPath`r`nError: $($_.Exception.Message)"
+    }
+}
+
+function Show-ReportWindow {
+    $reportText = Get-ReportText
+
+    $viewer = New-Object System.Windows.Forms.Form
+    $viewer.Text = "$Title - Report"
+    $viewer.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $viewer.MinimumSize = New-Object System.Drawing.Size(720, 520)
+    $viewer.Size = New-Object System.Drawing.Size(880, 640)
+    $viewer.BackColor = [System.Drawing.Color]::White
+    $viewer.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
+
+    $header = New-Object System.Windows.Forms.Panel
+    $header.Dock = [System.Windows.Forms.DockStyle]::Top
+    $header.Height = 72
+    $header.BackColor = [System.Drawing.Color]::White
+    $viewer.Controls.Add($header)
+
+    $headerAccent = New-Object System.Windows.Forms.Panel
+    $headerAccent.Dock = [System.Windows.Forms.DockStyle]::Left
+    $headerAccent.Width = 6
+    $headerAccent.BackColor = $accent
+    $header.Controls.Add($headerAccent)
+
+    $viewerTitle = New-Object System.Windows.Forms.Label
+    $viewerTitle.Text = $Title
+    $viewerTitle.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 13, [System.Drawing.FontStyle]::Bold)
+    $viewerTitle.ForeColor = [System.Drawing.Color]::FromArgb(17, 24, 39)
+    $viewerTitle.Location = New-Object System.Drawing.Point(22, 14)
+    $viewerTitle.Size = New-Object System.Drawing.Size(560, 24)
+    $header.Controls.Add($viewerTitle)
+
+    $pathLabel = New-Object System.Windows.Forms.Label
+    $pathLabel.Text = $ReportPath
+    $pathLabel.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8.5)
+    $pathLabel.ForeColor = [System.Drawing.Color]::FromArgb(107, 114, 128)
+    $pathLabel.AutoEllipsis = $true
+    $pathLabel.Location = New-Object System.Drawing.Point(22, 40)
+    $pathLabel.Size = New-Object System.Drawing.Size(600, 20)
+    $header.Controls.Add($pathLabel)
+
+    $viewerBadge = New-Object System.Windows.Forms.Label
+    $viewerBadge.Text = $statusText
+    $viewerBadge.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $viewerBadge.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $viewerBadge.ForeColor = $badgeFore
+    $viewerBadge.BackColor = $badgeBack
+    $viewerBadge.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $viewerBadge.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 102), 18)
+    $viewerBadge.Size = New-Object System.Drawing.Size(72, 28)
+    $header.Controls.Add($viewerBadge)
+
+    $body = New-Object System.Windows.Forms.TextBox
+    $body.Multiline = $true
+    $body.ReadOnly = $true
+    $body.ScrollBars = [System.Windows.Forms.ScrollBars]::Both
+    $body.WordWrap = $false
+    $body.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $body.Font = New-Object System.Drawing.Font("Consolas", 10)
+    $body.ForeColor = [System.Drawing.Color]::FromArgb(17, 24, 39)
+    $body.BackColor = [System.Drawing.Color]::FromArgb(249, 250, 251)
+    $body.Text = $reportText
+    $body.Dock = [System.Windows.Forms.DockStyle]::Fill
+    $viewer.Controls.Add($body)
+
+    $footer = New-Object System.Windows.Forms.Panel
+    $footer.Dock = [System.Windows.Forms.DockStyle]::Bottom
+    $footer.Height = 56
+    $footer.BackColor = [System.Drawing.Color]::FromArgb(249, 250, 251)
+    $viewer.Controls.Add($footer)
+    $footer.BringToFront()
+
+    $copyButton = New-Object System.Windows.Forms.Button
+    $copyButton.Text = "Copy"
+    $copyButton.Size = New-Object System.Drawing.Size(92, 30)
+    $copyButton.Location = New-Object System.Drawing.Point(16, 13)
+    $copyButton.Add_Click({
+        [System.Windows.Forms.Clipboard]::SetText($body.Text)
+    })
+    $footer.Controls.Add($copyButton)
+
+    $openFileButton = New-Object System.Windows.Forms.Button
+    $openFileButton.Text = "Open file"
+    $openFileButton.Size = New-Object System.Drawing.Size(92, 30)
+    $openFileButton.Location = New-Object System.Drawing.Point(116, 13)
+    $openFileButton.Add_Click({
+        if (-not [string]::IsNullOrWhiteSpace($ReportPath) -and (Test-Path -LiteralPath $ReportPath)) {
+            Start-Process -FilePath $ReportPath | Out-Null
+        }
+    })
+    $footer.Controls.Add($openFileButton)
+
+    $closeButton = New-Object System.Windows.Forms.Button
+    $closeButton.Text = "Close"
+    $closeButton.Size = New-Object System.Drawing.Size(92, 30)
+    $closeButton.Anchor = [System.Windows.Forms.AnchorStyles]::Right -bor [System.Windows.Forms.AnchorStyles]::Bottom
+    $closeButton.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 112), 13)
+    $closeButton.Add_Click({ $viewer.Close() })
+    $footer.Controls.Add($closeButton)
+
+    $viewer.Add_Resize({
+        $viewerBadge.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 102), 18)
+        $closeButton.Location = New-Object System.Drawing.Point(($viewer.ClientSize.Width - 112), 13)
+    })
+
+    [void]$viewer.ShowDialog()
 }
 
 $form = New-Object System.Windows.Forms.Form
@@ -150,8 +274,15 @@ $form.Controls.Add($hoverHint)
 
 $openReport = {
     if (-not [string]::IsNullOrWhiteSpace($ReportPath) -and (Test-Path -LiteralPath $ReportPath)) {
-        Start-Process -FilePath $ReportPath | Out-Null
         $form.Close()
+        if ($OpenMode -eq "file") {
+            Start-Process -FilePath $ReportPath | Out-Null
+        } else {
+            Show-ReportWindow
+        }
+    } elseif ($OpenMode -eq "native") {
+        $form.Close()
+        Show-ReportWindow
     }
 }
 

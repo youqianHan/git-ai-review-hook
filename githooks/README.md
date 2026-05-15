@@ -112,9 +112,13 @@ never   # 不发送通知
 ```bash
 AI_REVIEW_DESKTOP_NOTIFY=true
 AI_REVIEW_DESKTOP_NOTIFY_SECONDS=8
+AI_REVIEW_DESKTOP_OPEN_MODE=native
+AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=false
 ```
 
-支持 macOS `osascript`、Windows PowerShell 自定义右下角通知和 Linux `notify-send`。Windows 通知会自动关闭，鼠标悬停时暂停关闭，点击通知主体可打开 review 报告。
+支持 macOS `osascript`、Windows PowerShell 自定义右下角通知和 Linux `notify-send`。Windows 通知会自动关闭，鼠标悬停时暂停关闭，点击通知主体默认打开内置原生报告窗；如果设置 `AI_REVIEW_DESKTOP_OPEN_MODE=file`，则恢复打开 `.git/ai-review/last-review.md` 文件。
+
+macOS 的系统通知点击回调在纯 shell 中不稳定，因此默认只发通知；如果设置 `AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=true`，review 完成后会自动弹出系统原生报告框。
 
 ### 飞书
 

@@ -61,6 +61,8 @@ write_config() {
     printf '%s\n' "AI_REVIEW_NOTIFY_ON=$notify_on"
     printf '%s\n' "AI_REVIEW_DESKTOP_NOTIFY=$desktop_notify"
     printf '%s\n' "AI_REVIEW_DESKTOP_NOTIFY_SECONDS=$desktop_notify_seconds"
+    printf '%s\n' "AI_REVIEW_DESKTOP_OPEN_MODE=$desktop_open_mode"
+    printf '%s\n' "AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=$desktop_auto_open_report"
     [ -n "${feishu_webhook:-}" ] && printf '%s\n' "AI_REVIEW_FEISHU_WEBHOOK=$feishu_webhook"
     [ -n "${wechat_webhook:-}" ] && printf '%s\n' "AI_REVIEW_WECHAT_WEBHOOK=$wechat_webhook"
     [ -n "${dingtalk_webhook:-}" ] && printf '%s\n' "AI_REVIEW_DINGTALK_WEBHOOK=$dingtalk_webhook"
@@ -178,6 +180,10 @@ desktop_notify="$(ask_choice "Enable desktop notification" "true false" "$(get_e
 [ -n "$desktop_notify" ] || desktop_notify="true"
 desktop_notify_seconds="$(get_existing AI_REVIEW_DESKTOP_NOTIFY_SECONDS || true)"
 [ -n "$desktop_notify_seconds" ] || desktop_notify_seconds="8"
+desktop_open_mode="$(ask_choice "Desktop report open mode" "native file" "$(get_existing AI_REVIEW_DESKTOP_OPEN_MODE || true)")"
+[ -n "$desktop_open_mode" ] || desktop_open_mode="native"
+desktop_auto_open_report="$(ask_choice "Auto open report dialog on macOS" "false true" "$(get_existing AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT || true)")"
+[ -n "$desktop_auto_open_report" ] || desktop_auto_open_report="false"
 notify_type="$(ask_choice "Notification channel" "none feishu wechat dingtalk email" "none")"
 
 case "$notify_type" in

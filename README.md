@@ -105,13 +105,17 @@ AI_REVIEW_BASE_URL=https://example.com/v1/chat/completions
 ```bash
 AI_REVIEW_DESKTOP_NOTIFY=true
 AI_REVIEW_DESKTOP_NOTIFY_SECONDS=8
+AI_REVIEW_DESKTOP_OPEN_MODE=native
+AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=false
 ```
 
 支持：
 
-- macOS：`osascript` 系统通知
-- Windows：PowerShell 自定义右下角通知，支持自动关闭，鼠标悬停暂停关闭，点击打开 review 报告
+- macOS：`osascript` 系统通知；如设置 `AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT=true`，review 完成后会自动弹出系统原生报告框
+- Windows：PowerShell 自定义右下角通知，支持自动关闭、鼠标悬停暂停关闭，点击打开内置原生报告窗
 - Linux：`notify-send`
+
+`AI_REVIEW_DESKTOP_OPEN_MODE=file` 可恢复 Windows 点击后直接打开 `.git/ai-review/last-review.md` 文件的旧行为。
 
 团队通知推荐飞书、企业微信或钉钉机器人，配置一个 webhook 即可。
 

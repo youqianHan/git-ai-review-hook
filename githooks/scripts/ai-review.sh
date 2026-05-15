@@ -55,6 +55,8 @@ load_config "$repo_root/.ai-review.env"
 : "${AI_REVIEW_NOTIFY_ON:=always}"
 : "${AI_REVIEW_NOTIFY_PREVIEW_LINES:=80}"
 : "${AI_REVIEW_DESKTOP_NOTIFY_SECONDS:=8}"
+: "${AI_REVIEW_DESKTOP_OPEN_MODE:=native}"
+: "${AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT:=false}"
 : "${AI_REVIEW_ASYNC:=true}"
 : "${AI_REVIEW_JOB_ID:=latest}"
 
@@ -231,6 +233,37 @@ PY
     if command -v osascript >/dev/null 2>&1; then
       osascript -e "display notification \"$(printf '%s' "$summary" | sed 's/"/\\"/g')\" with title \"AI Commit Review\"" >/dev/null 2>&1 \
         || warn "[ai-review] failed to send macOS desktop notification"
+      if [ "${AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT:-false}" = "true" ]; then
+        if [ -n "$py_cmd" ]; then
+          run_python "$py_cmd" - "$message_file" "$status" <<'PY' | osascript >/dev/null 2>&1 \
+            || warn "[ai-review] failed to show macOS review report"
+import pathlib
+import sys
+
+message_path = pathlib.Path(sys.argv[1])
+runtime_status = sys.argv[2].strip().upper()
+text = message_path.read_text(encoding="utf-8", errors="replace").strip()
+first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+if runtime_status == "ERROR":
+    status = "ERROR"
+elif "FAIL" in first_line.upper():
+    status = "FAIL"
+else:
+    status = "PASS"
+
+max_chars = 6000
+if len(text) > max_chars:
+    text = text[:max_chars] + "\n\n... 内容过长，完整报告请查看 .git/ai-review/last-review.md"
+
+def esc(value):
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "").replace("\n", "\\n")
+
+print(f'display dialog "{esc(text or "无报告内容")}" with title "AI Commit Review [{status}]" buttons {{"OK"}} default button "OK"')
+PY
+        else
+          warn "[ai-review] python is not available, skip macOS review report dialog"
+        fi
+      fi
     elif command -v powershell.exe >/dev/null 2>&1; then
       notify_script="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/show-windows-notification.ps1"
       notify_report_path="$report_file"
@@ -266,6 +299,7 @@ PY
           -MessageBase64 "$notify_message_b64" \
           -Status "$notify_status" \
           -ReportPathBase64 "$notify_report_path_b64" \
+          -OpenMode "$AI_REVIEW_DESKTOP_OPEN_MODE" \
           -Seconds "$AI_REVIEW_DESKTOP_NOTIFY_SECONDS" >/dev/null 2>&1 &
       else
         warn "[ai-review] Windows notification script not found: $notify_script"

@@ -33,6 +33,8 @@ $inputText = @(
     "test-key",
     "never",
     "false",
+    "native",
+    "false",
     "none"
 ) -join [Environment]::NewLine
 
@@ -76,6 +78,8 @@ $bootstrapInput = @(
     "test-key",
     "never",
     "false",
+    "native",
+    "false",
     "none"
 ) -join [Environment]::NewLine
 $bootstrapInput + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1")
@@ -111,6 +115,8 @@ try {
         "gpt-test",
         "test-key",
         "never",
+        "false",
+        "native",
         "false",
         "none"
     ) -join [Environment]::NewLine
