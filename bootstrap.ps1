@@ -9,7 +9,7 @@ $hostName = if ($env:AI_REVIEW_HOOK_HOST) { $env:AI_REVIEW_HOOK_HOST } else { "g
 $version = if ($env:AI_REVIEW_HOOK_VERSION) { $env:AI_REVIEW_HOOK_VERSION } else { "latest" }
 $localZip = $env:AI_REVIEW_HOOK_ZIP
 $installScope = if ($Scope) { $Scope } elseif ($env:AI_REVIEW_HOOK_SCOPE) { $env:AI_REVIEW_HOOK_SCOPE } else { "" }
-$latestGiteeVersion = "v0.1.5"
+$latestGiteeVersion = "v0.1.6"
 
 function Read-Choice {
     param(
