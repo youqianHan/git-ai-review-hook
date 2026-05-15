@@ -179,6 +179,8 @@ IDEA 提交成功时，Git hook 的 stdout/stderr 不一定明显展示。通常
 
 可以用一次临时 commit 测试，也可以直接检查接口。
 
+Windows 上如果环境检测能看到 `python.exe`，但 commit 时 AI 调用失败，常见原因是 Microsoft Store 的 Python App Execution Alias 或 PATH 问题。新版安装脚本会实际运行 Python 3，并确认它在 Git Bash 中可用；运行时也会自动尝试 `python`、`python3`、`py -3`。
+
 PowerShell 中测试 `/models`：
 
 ```powershell

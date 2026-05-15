@@ -106,7 +106,15 @@ ensure_dependencies() {
   if ! command -v sh >/dev/null 2>&1 && ! command -v bash >/dev/null 2>&1; then
     missing="$missing sh-or-bash"
   fi
-  command -v python >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1 || missing="$missing python"
+  python_ok="false"
+  for candidate in python python3 "py -3"; do
+    # Intentionally expand fixed candidates so "py -3" works as command + arg.
+    if $candidate -c 'import sys; raise SystemExit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+      python_ok="true"
+      break
+    fi
+  done
+  [ "$python_ok" = "true" ] || missing="$missing python3"
   command -v curl >/dev/null 2>&1 || missing="$missing curl"
 
   if [ -n "$missing" ]; then

@@ -45,6 +45,49 @@ function To-Bool {
     return $Default
 }
 
+function Test-PythonCommand {
+    param([string]$Command)
+
+    if ([string]::IsNullOrWhiteSpace($Command)) { return $false }
+    try {
+        if ($Command -eq "py -3") {
+            $output = & py -3 -c "import sys; print(sys.version_info[0])" 2>$null
+        } else {
+            $output = & $Command -c "import sys; print(sys.version_info[0])" 2>$null
+        }
+        return ($LASTEXITCODE -eq 0 -and (($output -join "").Trim() -eq "3"))
+    } catch {
+        return $false
+    }
+}
+
+function Find-PythonCommand {
+    foreach ($candidate in @("python", "python3", "py -3")) {
+        if (Test-PythonCommand $candidate) {
+            return $candidate
+        }
+    }
+    return ""
+}
+
+function Invoke-PythonScript {
+    param(
+        [string]$PythonCommand,
+        [string]$Script
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PythonCommand)) {
+        throw "No usable Python 3 command found"
+    }
+
+    $encoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($Script))
+    if ($PythonCommand -eq "py -3") {
+        & py -3 -c "import base64; exec(base64.b64decode('$encoded').decode('utf-8'))"
+    } else {
+        & $PythonCommand -c "import base64; exec(base64.b64decode('$encoded').decode('utf-8'))"
+    }
+}
+
 $sendMailEnabled = To-Bool $SendMail $true
 $testAiEnabled = To-Bool $TestAi $true
 
@@ -75,7 +118,22 @@ try {
     Write-Host "== Runtime =="
     Write-Host "PowerShell=$($PSVersionTable.PSVersion)"
     try { Write-Host "git=$(git --version)" } catch { Write-Host "git error=$($_.Exception.Message)" }
-    try { Write-Host "python=$(python --version 2>&1)" } catch { Write-Host "python error=$($_.Exception.Message)" }
+    $pythonCommand = Find-PythonCommand
+    if ($pythonCommand) {
+        try {
+            if ($pythonCommand -eq "py -3") {
+                $pythonVersion = & py -3 --version 2>&1
+            } else {
+                $pythonVersion = & $pythonCommand --version 2>&1
+            }
+            Write-Host "python command=$pythonCommand"
+            Write-Host "python version=$pythonVersion"
+        } catch {
+            Write-Host "python error=$($_.Exception.Message)"
+        }
+    } else {
+        Write-Host "python error=no usable Python 3 command found"
+    }
     $defaultSh = "C:\Program Files\Git\bin\sh.exe"
     $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
     $derivedSh = ""
@@ -161,7 +219,7 @@ try {
         foreach ($item in $config.GetEnumerator()) {
             [Environment]::SetEnvironmentVariable($item.Key, $item.Value, "Process")
         }
-        @'
+        $mailScript = @'
 import os
 import smtplib
 from datetime import datetime
@@ -212,7 +270,8 @@ finally:
         server.quit()
     except Exception:
         pass
-'@ | python -
+'@
+        Invoke-PythonScript -PythonCommand $pythonCommand -Script $mailScript
         Write-Host ""
     }
 

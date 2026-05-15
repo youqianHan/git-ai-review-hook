@@ -10,13 +10,21 @@ warn() {
 }
 
 python_cmd() {
-  if command -v python >/dev/null 2>&1; then
-    printf '%s\n' "python"
-  elif command -v python3 >/dev/null 2>&1; then
-    printf '%s\n' "python3"
-  else
-    printf '%s\n' ""
-  fi
+  for cmd in python python3 "py -3"; do
+    # Intentionally expand fixed candidates so "py -3" works as command + arg.
+    if $cmd -c 'import sys, json, pathlib; raise SystemExit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+      printf '%s\n' "$cmd"
+      return 0
+    fi
+  done
+  printf '%s\n' ""
+}
+
+run_python() {
+  cmd="$1"
+  shift
+  # Intentionally expand a trusted command selected by python_cmd so "py -3" works.
+  $cmd "$@"
 }
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -186,7 +194,7 @@ send_notifications() {
   if [ "${AI_REVIEW_DESKTOP_NOTIFY:-false}" = "true" ]; then
     py_cmd="$(python_cmd)"
     if [ -n "$py_cmd" ]; then
-      summary="$("$py_cmd" - "$message_file" <<'PY'
+      summary="$(run_python "$py_cmd" - "$message_file" <<'PY'
 import pathlib
 import sys
 
@@ -218,7 +226,7 @@ PY
           notify_report_path="$repo_root/$notify_report_path"
           ;;
       esac
-      notify_status="$("$py_cmd" - "$message_file" "$status" <<'PY'
+      notify_status="$(run_python "$py_cmd" - "$message_file" "$status" <<'PY'
 import pathlib
 import sys
 
@@ -254,7 +262,7 @@ PY
   if [ -n "${AI_REVIEW_FEISHU_WEBHOOK:-}" ]; then
     py_cmd="$(python_cmd)"
     if [ -n "$py_cmd" ]; then
-      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/feishu-payload.json" <<'PY'
+      if run_python "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/feishu-payload.json" <<'PY'
 import json
 import pathlib
 import sys
@@ -302,7 +310,7 @@ PY
   if [ -n "${AI_REVIEW_WECHAT_WEBHOOK:-}" ]; then
     py_cmd="$(python_cmd)"
     if [ -n "$py_cmd" ]; then
-      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/wechat-payload.json" <<'PY'
+      if run_python "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/wechat-payload.json" <<'PY'
 import json
 import pathlib
 import sys
@@ -340,7 +348,7 @@ PY
   if [ -n "${AI_REVIEW_DINGTALK_WEBHOOK:-}" ]; then
     py_cmd="$(python_cmd)"
     if [ -n "$py_cmd" ]; then
-      if "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/dingtalk-payload.json" <<'PY'
+      if run_python "$py_cmd" - "$message_file" "$repo_root" "$AI_REVIEW_NOTIFY_PREVIEW_LINES" > "$AI_REVIEW_REPORT_DIR/dingtalk-payload.json" <<'PY'
 import json
 import pathlib
 import sys
@@ -387,7 +395,7 @@ PY
       export AI_REVIEW_EMAIL_TO
       export AI_REVIEW_SMTP_SSL
       export AI_REVIEW_SMTP_STARTTLS
-      "$py_cmd" - "$message_file" "$repo_root" <<'PY' || warn "[ai-review] failed to send email notification"
+      run_python "$py_cmd" - "$message_file" "$repo_root" <<'PY' || warn "[ai-review] failed to send email notification"
 import html
 import os
 import pathlib
@@ -543,7 +551,7 @@ if [ -z "$PY_CMD" ]; then
   exit 0
 fi
 
-"$PY_CMD" - "$diff_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
+run_python "$PY_CMD" - "$diff_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
 import json
 import pathlib
 import sys
@@ -639,7 +647,7 @@ if [ "$http_code" != "200" ]; then
   exit 0
 fi
 
-if ! "$PY_CMD" - "$response_file" "$report_file" <<'PY'
+if ! run_python "$PY_CMD" - "$response_file" "$report_file" <<'PY'
 import json
 import pathlib
 import sys

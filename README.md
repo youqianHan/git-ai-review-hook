@@ -45,7 +45,7 @@ AI_REVIEW_HOOK_ZIP=/path/to/git-ai-review-hook.zip sh bootstrap.sh
 
 安装脚本会：
 
-- 检查 Git、Git Bash、Python、curl。
+- 检查 Git、Git Bash、curl，以及 Git Bash 内可实际执行的 Python 3。
 - 设置 `git config core.hooksPath githooks`。
 - 自动把 `.ai-review.env` 和 `/githooks/` 加入 `.gitignore`。
 - 交互式生成或更新 `.ai-review.env`。
@@ -179,6 +179,8 @@ AI_REVIEW_NOTIFY_ON=never   # 不通知
 ```
 
 如果没收到通知，优先看最新 job 的 `background.log`。
+
+Windows 上如果安装检测显示有 `python.exe`，但 commit 时 AI 调用失败，通常是 Microsoft Store 的 Python App Execution Alias 或 PATH 问题。安装脚本会实际执行 Python 3 代码，并确认它在 Git Bash 中可用；也支持 `py -3`。
 
 ## 诊断
 

@@ -197,6 +197,48 @@ function Find-GitShell {
     return $null
 }
 
+function Test-PythonCommand {
+    param([string]$Command)
+
+    if ([string]::IsNullOrWhiteSpace($Command)) { return $false }
+    try {
+        if ($Command -eq "py -3") {
+            $output = & py -3 -c "import sys; print(sys.version_info[0])" 2>$null
+        } else {
+            $output = & $Command -c "import sys; print(sys.version_info[0])" 2>$null
+        }
+        return ($LASTEXITCODE -eq 0 -and (($output -join "").Trim() -eq "3"))
+    } catch {
+        return $false
+    }
+}
+
+function Find-PythonCommand {
+    foreach ($candidate in @("python", "python3", "py -3")) {
+        if (Test-PythonCommand $candidate) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Test-PythonInGitShell {
+    param(
+        [string]$GitShell,
+        [string]$PythonCommand
+    )
+
+    if ([string]::IsNullOrWhiteSpace($GitShell) -or [string]::IsNullOrWhiteSpace($PythonCommand)) {
+        return $false
+    }
+    try {
+        $result = & $GitShell -lc "$PythonCommand -c 'import sys; print(sys.version_info[0])'" 2>$null
+        return ($LASTEXITCODE -eq 0 -and (($result -join "").Trim() -eq "3"))
+    } catch {
+        return $false
+    }
+}
+
 function Install-WithWinget {
     param(
         [string]$PackageId,
@@ -233,10 +275,24 @@ function Ensure-Dependencies {
         $gitShell = Find-GitShell
     }
 
-    $python = Get-Command python.exe -ErrorAction SilentlyContinue
+    $python = Find-PythonCommand
     if (-not $python) {
         Install-WithWinget "Python.Python.3.13" "Python 3" | Out-Null
-        $python = Get-Command python.exe -ErrorAction SilentlyContinue
+        $python = Find-PythonCommand
+    }
+
+    $pythonInGitShell = $false
+    if ($python -and $gitShell) {
+        $pythonInGitShell = Test-PythonInGitShell -GitShell $gitShell -PythonCommand $python
+        if (-not $pythonInGitShell) {
+            foreach ($candidate in @("python", "python3", "py -3")) {
+                if (Test-PythonInGitShell -GitShell $gitShell -PythonCommand $candidate) {
+                    $python = $candidate
+                    $pythonInGitShell = $true
+                    break
+                }
+            }
+        }
     }
 
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -247,13 +303,14 @@ function Ensure-Dependencies {
     Write-Host "Dependency summary:"
     Write-Host "  git:    $($git.Source)"
     Write-Host "  sh:     $gitShell"
-    Write-Host "  python: $($python.Source)"
+    Write-Host "  python: $python"
+    Write-Host "  python in Git Bash: $pythonInGitShell"
     Write-Host "  curl:   $($curl.Source)"
 
     $missing = @()
     if (-not $git) { $missing += "git" }
     if (-not $gitShell) { $missing += "Git Bash sh.exe/bash.exe" }
-    if (-not $python) { $missing += "python" }
+    if (-not $python -or -not $pythonInGitShell) { $missing += "python usable from Git Bash" }
     if (-not $curl) { $missing += "curl" }
 
     if ($missing.Count -gt 0) {
