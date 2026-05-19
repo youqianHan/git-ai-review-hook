@@ -27,9 +27,24 @@ function Read-Choice {
     }
 }
 
-$repoRoot = git rev-parse --show-toplevel 2>$null
+function Get-GitRepoRoot {
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $root = git rev-parse --show-toplevel 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($root)) {
+            return ($root -join "").Trim()
+        }
+        return ""
+    } catch {
+        return ""
+    } finally {
+        $ErrorActionPreference = $oldPreference
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($installScope)) {
-    $defaultScope = if ($repoRoot) { "local" } else { "global" }
+    $defaultScope = "global"
     $installScope = Read-Choice "Install scope / 安装范围" @("local", "global") $defaultScope
 }
 if ($installScope -notin @("local", "global")) {
@@ -39,8 +54,13 @@ $hostName = $hostName.Trim().ToLowerInvariant()
 if ($hostName -notin @("github", "gitee")) {
     throw "Invalid AI_REVIEW_HOOK_HOST / 无效下载源: $hostName. Use github or gitee / 请使用 github 或 gitee."
 }
-if (-not $repoRoot -and $installScope -ne "global") {
-    throw "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global. / 请在 Git 仓库内运行安装脚本，或设置 AI_REVIEW_HOOK_SCOPE=global。"
+
+$repoRoot = ""
+if ($installScope -eq "local") {
+    $repoRoot = Get-GitRepoRoot
+    if ([string]::IsNullOrWhiteSpace($repoRoot)) {
+        throw "Local install requires running inside a Git repository. / 当前项目安装需要在 Git 仓库内运行。"
+    }
 }
 if ($repoRoot) {
     Set-Location $repoRoot

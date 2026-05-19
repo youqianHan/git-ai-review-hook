@@ -94,6 +94,62 @@ if ((git config core.hooksPath) -ne "githooks") {
 }
 Remove-Item Env:\AI_REVIEW_HOOK_ZIP,Env:\AI_REVIEW_HOOK_SCOPE -ErrorAction SilentlyContinue
 
+$nonGitTmp = Join-Path $env:TEMP ("ai-review-hook-nongit-ci-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $nonGitTmp | Out-Null
+Set-Location $nonGitTmp
+$oldHomeForNonGit = $env:HOME
+$oldUserProfileForNonGit = $env:USERPROFILE
+$nonGitHome = Join-Path $nonGitTmp "home"
+New-Item -ItemType Directory -Path $nonGitHome | Out-Null
+try {
+    $env:HOME = $nonGitHome
+    $env:USERPROFILE = $nonGitHome
+    $env:AI_REVIEW_HOOK_ZIP = $zip
+
+    $nonGitGlobalInput = @(
+        "global",
+        "https://example.com/v1",
+        "gpt-test",
+        "test-key",
+        "never",
+        "false",
+        "native",
+        "false",
+        "none"
+    ) -join [Environment]::NewLine
+    $nonGitGlobalInput + [Environment]::NewLine | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        throw "non-git global bootstrap.ps1 failed with exit code $LASTEXITCODE"
+    }
+    $nonGitHooks = git config --global core.hooksPath
+    if (-not $nonGitHooks -or -not (Test-Path (Join-Path $nonGitHooks "pre-commit"))) {
+        throw "non-git global bootstrap did not install hook"
+    }
+
+    $nonGitLocalInput = "local" + [Environment]::NewLine
+    $oldErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $nonGitLocalOutput = $nonGitLocalInput | powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "bootstrap.ps1") 2>&1
+        $nonGitLocalExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $oldErrorActionPreference
+    }
+    if ($nonGitLocalExitCode -eq 0) {
+        throw "non-git local bootstrap.ps1 unexpectedly succeeded"
+    }
+    $nonGitLocalText = $nonGitLocalOutput -join "`n"
+    if ($nonGitLocalText -match "fatal: not a git repository" -or $nonGitLocalText -notmatch "Local install requires running inside a Git repository") {
+        throw "non-git local bootstrap.ps1 did not show clean local-only error: $nonGitLocalText"
+    }
+} finally {
+    Remove-Item Env:\AI_REVIEW_HOOK_ZIP -ErrorAction SilentlyContinue
+    $env:HOME = $oldHomeForNonGit
+    $env:USERPROFILE = $oldUserProfileForNonGit
+    Set-Location $root
+    Remove-Item -LiteralPath $nonGitTmp -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 $globalTmp = Join-Path $env:TEMP ("ai-review-hook-global-ci-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Path $globalTmp | Out-Null
 $globalHome = Join-Path $globalTmp "home"

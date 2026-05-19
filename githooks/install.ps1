@@ -59,6 +59,22 @@ function Read-Choice {
     }
 }
 
+function Get-GitRepoRoot {
+    $oldPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        $root = git rev-parse --show-toplevel 2>$null
+        if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($root)) {
+            return ($root -join "").Trim()
+        }
+        return ""
+    } catch {
+        return ""
+    } finally {
+        $ErrorActionPreference = $oldPreference
+    }
+}
+
 function Read-EnvFile {
     param([string]$Path)
 
@@ -351,7 +367,7 @@ function Ensure-Dependencies {
 }
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$repoRoot = git rev-parse --show-toplevel 2>$null
+$repoRoot = Get-GitRepoRoot
 if ([string]::IsNullOrWhiteSpace($Scope)) {
     $defaultScope = if ($repoRoot) { "local" } else { "global" }
     $Scope = Read-Choice "Install scope / 安装范围" @("local", "global") $defaultScope
@@ -363,7 +379,7 @@ if ($Scope -eq "local" -and -not $repoRoot) {
     throw "Local install requires running inside a Git repository. / 当前项目安装需要在 Git 仓库内运行。"
 }
 
-if ($repoRoot) {
+if ($Scope -eq "local") {
     Set-Location $repoRoot
 }
 Ensure-Dependencies
