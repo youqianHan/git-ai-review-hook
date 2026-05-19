@@ -54,17 +54,17 @@ zip_file="$tmp_dir/git-ai-review-hook.zip"
 if [ -n "$LOCAL_ZIP" ]; then
   [ -f "$LOCAL_ZIP" ] || fail "Local zip not found / 本地 zip 不存在: $LOCAL_ZIP"
   cp "$LOCAL_ZIP" "$zip_file"
+elif [ "$HOST_NAME" = "gitee" ]; then
+  clone_version="$VERSION"
+  [ "$clone_version" = "latest" ] && clone_version="main"
+  clone_url="https://gitee.com/$REPO_SLUG.git"
+  git clone --depth 1 --branch "$clone_version" "$clone_url" "$tmp_dir/repo" ||
+    fail "Failed to clone from Gitee / 从 Gitee 克隆失败: $clone_url ($clone_version)"
 else
-  if [ "$HOST_NAME" = "gitee" ]; then
-    archive_version="$VERSION"
-    [ "$archive_version" = "latest" ] && archive_version="$LATEST_GITEE_VERSION"
-    url="https://gitee.com/$REPO_SLUG/repository/archive/$archive_version.zip"
+  if [ "$VERSION" = "latest" ]; then
+    url="https://github.com/$REPO_SLUG/releases/latest/download/git-ai-review-hook.zip"
   else
-    if [ "$VERSION" = "latest" ]; then
-      url="https://github.com/$REPO_SLUG/releases/latest/download/git-ai-review-hook.zip"
-    else
-      url="https://github.com/$REPO_SLUG/releases/download/$VERSION/git-ai-review-hook.zip"
-    fi
+    url="https://github.com/$REPO_SLUG/releases/download/$VERSION/git-ai-review-hook.zip"
   fi
 
   if need_cmd curl; then
@@ -79,13 +79,17 @@ else
   fi
 fi
 
-unzip -q "$zip_file" -d "$tmp_dir/package"
+if [ "$HOST_NAME" = "gitee" ] && [ -z "$LOCAL_ZIP" ]; then
+  package_root="$tmp_dir/repo"
+else
+  unzip -q "$zip_file" -d "$tmp_dir/package"
 
-package_root="$tmp_dir/package"
-if [ ! -d "$package_root/githooks" ]; then
-  nested="$(find "$package_root" -type d -name githooks | head -n 1)"
-  [ -n "$nested" ] || fail "Package does not contain githooks/. / 安装包中未找到 githooks/ 目录。"
-  package_root="$(dirname "$nested")"
+  package_root="$tmp_dir/package"
+  if [ ! -d "$package_root/githooks" ]; then
+    nested="$(find "$package_root" -type d -name githooks | head -n 1)"
+    [ -n "$nested" ] || fail "Package does not contain githooks/. / 安装包中未找到 githooks/ 目录。"
+    package_root="$(dirname "$nested")"
+  fi
 fi
 
 if [ "$INSTALL_SCOPE" = "global" ]; then

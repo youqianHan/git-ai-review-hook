@@ -74,22 +74,29 @@ try {
     if ($localZip) {
         if (-not (Test-Path $localZip)) { throw "Local zip not found / 本地 zip 不存在: $localZip" }
         Copy-Item $localZip $zipFile
+    } elseif ($hostName -eq "gitee") {
+        $cloneVersion = if ($version -eq "latest") { "main" } else { $version }
+        $cloneUrl = "https://gitee.com/$repoSlug.git"
+        $cloneDir = Join-Path $tmpDir "repo"
+        git clone --depth 1 --branch $cloneVersion $cloneUrl $cloneDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to clone from Gitee / 从 Gitee 克隆失败: $cloneUrl ($cloneVersion)"
+        }
     } else {
-        if ($hostName -eq "gitee") {
-            $archiveVersion = if ($version -eq "latest") { $latestGiteeVersion } else { $version }
-            $url = "https://gitee.com/$repoSlug/repository/archive/$archiveVersion.zip"
+        if ($version -eq "latest") {
+            $url = "https://github.com/$repoSlug/releases/latest/download/git-ai-review-hook.zip"
         } else {
-            if ($version -eq "latest") {
-                $url = "https://github.com/$repoSlug/releases/latest/download/git-ai-review-hook.zip"
-            } else {
-                $url = "https://github.com/$repoSlug/releases/download/$version/git-ai-review-hook.zip"
-            }
+            $url = "https://github.com/$repoSlug/releases/download/$version/git-ai-review-hook.zip"
         }
         Invoke-WebRequest -Uri $url -OutFile $zipFile
     }
 
-    $packageDir = Join-Path $tmpDir "package"
-    Expand-Archive -Path $zipFile -DestinationPath $packageDir -Force
+    if ($hostName -eq "gitee" -and -not $localZip) {
+        $packageDir = Join-Path $tmpDir "repo"
+    } else {
+        $packageDir = Join-Path $tmpDir "package"
+        Expand-Archive -Path $zipFile -DestinationPath $packageDir -Force
+    }
 
     $githooksDir = Get-ChildItem -Path $packageDir -Directory -Recurse |
         Where-Object { $_.Name -eq "githooks" } |
