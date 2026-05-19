@@ -17,10 +17,9 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1
 }
 
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+repo_root=""
 if [ -z "$INSTALL_SCOPE" ]; then
-  default_scope="local"
-  [ -z "$repo_root" ] && default_scope="global"
+  default_scope="global"
   printf '%s [%s]: ' "Install scope / 安装范围 (local global)" "$default_scope" >&2
   IFS= read -r INSTALL_SCOPE || INSTALL_SCOPE=""
   [ -n "$INSTALL_SCOPE" ] || INSTALL_SCOPE="$default_scope"
@@ -33,8 +32,11 @@ case "$HOST_NAME" in
   github|gitee) ;;
   *) fail "Invalid AI_REVIEW_HOOK_HOST / 无效下载源: $HOST_NAME. Use github or gitee / 请使用 github 或 gitee." ;;
 esac
-if [ -z "$repo_root" ] && [ "$INSTALL_SCOPE" != "global" ]; then
-  fail "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global. / 请在 Git 仓库内运行安装脚本，或设置 AI_REVIEW_HOOK_SCOPE=global。"
+if [ "$INSTALL_SCOPE" = "local" ]; then
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -z "$repo_root" ]; then
+    fail "Local install requires running inside a Git repository. / 当前项目安装需要在 Git 仓库内运行。"
+  fi
 fi
 [ -n "$repo_root" ] && cd "$repo_root"
 

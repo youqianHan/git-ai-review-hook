@@ -1,9 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
-repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 scope="${1:-${AI_REVIEW_HOOK_SCOPE:-}}"
+repo_root=""
 env_file=".ai-review.env"
 
 get_existing() {
@@ -134,9 +134,7 @@ ensure_dependencies() {
 ensure_dependencies
 if [ -z "$scope" ]; then
   default_scope="local"
-  if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
-    default_scope="global"
-  fi
+  git rev-parse --show-toplevel >/dev/null 2>&1 || default_scope="global"
   scope="$(ask_choice "Install scope / 安装范围" "local global" "$default_scope")"
 fi
 
@@ -155,6 +153,7 @@ if [ "$scope" = "global" ]; then
   git config --global core.hooksPath "$script_dir"
   chmod +x "$script_dir/pre-commit" "$script_dir/scripts/ai-review.sh" 2>/dev/null || true
 else
+  repo_root="$(git rev-parse --show-toplevel)"
   cd "$repo_root"
   env_file=".ai-review.env"
   git config core.hooksPath githooks
