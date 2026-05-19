@@ -37,14 +37,14 @@ ask_choice() {
     value="$(ask_default "$prompt ($allowed)" "$default")"
     case " $allowed " in
       *" $value "*) printf '%s\n' "$value"; return ;;
-      *) printf 'Invalid value: %s\n' "$value" >&2 ;;
+      *) printf 'Invalid value / 无效输入: %s\n' "$value" >&2 ;;
     esac
   done
 }
 
 write_config() {
   {
-    printf '%s\n' "# AI review git hook config. Do not commit this file."
+    printf '%s\n' "# AI review git hook config. Do not commit this file. / AI review Git Hook 配置文件，请勿提交。"
     printf '%s\n' "AI_REVIEW_ENABLED=true"
     printf '%s\n' "AI_REVIEW_API_KEY=$ai_key"
     printf '%s\n' "AI_REVIEW_MODEL=$model"
@@ -95,9 +95,9 @@ ensure_gitignore() {
   fi
 
   if [ "$changed" = "true" ]; then
-    printf '%s\n' "Updated .gitignore with .ai-review.env and /githooks/"
+    printf '%s\n' "Updated .gitignore with .ai-review.env and /githooks/ / 已更新 .gitignore，忽略 .ai-review.env 和 /githooks/"
   else
-    printf '%s\n' ".gitignore already ignores .ai-review.env and /githooks/"
+    printf '%s\n' ".gitignore already ignores .ai-review.env and /githooks/ / .gitignore 已包含 .ai-review.env 和 /githooks/"
   fi
 }
 
@@ -120,15 +120,15 @@ ensure_dependencies() {
   command -v curl >/dev/null 2>&1 || missing="$missing curl"
 
   if [ -n "$missing" ]; then
-    printf '%s\n' "Missing dependencies:$missing" >&2
-    printf '%s\n' "Install them and re-run this script." >&2
+    printf '%s\n' "Missing dependencies / 缺失依赖:$missing" >&2
+    printf '%s\n' "Install them and re-run this script. / 请安装依赖后重新运行本脚本。" >&2
     printf '%s\n' "macOS example: brew install git python curl" >&2
     printf '%s\n' "Debian/Ubuntu example: sudo apt-get install git python3 curl" >&2
     printf '%s\n' "RHEL/CentOS example: sudo yum install git python3 curl" >&2
     exit 1
   fi
 
-  printf '%s\n' "Dependencies OK."
+  printf '%s\n' "Dependencies OK. / 依赖检查通过。"
 }
 
 ensure_dependencies
@@ -137,16 +137,16 @@ if [ -z "$scope" ]; then
   if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
     default_scope="global"
   fi
-  scope="$(ask_choice "Install scope" "local global" "$default_scope")"
+  scope="$(ask_choice "Install scope / 安装范围" "local global" "$default_scope")"
 fi
 
 case "$scope" in
   local|global) ;;
-  *) printf '%s\n' "Invalid scope: $scope. Use local or global." >&2; exit 1 ;;
+  *) printf '%s\n' "Invalid scope / 无效安装范围: $scope. Use local or global / 请使用 local 或 global。" >&2; exit 1 ;;
 esac
 
 if [ "$scope" = "local" ] && ! git rev-parse --show-toplevel >/dev/null 2>&1; then
-  printf '%s\n' "Local install requires running inside a Git repository." >&2
+  printf '%s\n' "Local install requires running inside a Git repository. / 当前项目安装需要在 Git 仓库内运行。" >&2
   exit 1
 fi
 
@@ -163,50 +163,50 @@ else
 fi
 
 if [ "$scope" = "global" ]; then
-  printf '\nConfigure AI review hook for: global\n'
+  printf '\nConfigure AI review hook for / 配置 AI review hook: global\n'
 else
-  printf '\nConfigure AI review hook for: %s\n' "$repo_root"
+  printf '\nConfigure AI review hook for / 配置 AI review hook: %s\n' "$repo_root"
 fi
-printf 'Press Enter to keep the value shown in brackets.\n\n'
+printf 'Press Enter to keep the value shown in brackets. / 直接回车保留方括号中的默认值。\n\n'
 
-base_url="$(ask_default "AI base URL" "$(get_existing AI_REVIEW_BASE_URL || true)")"
+base_url="$(ask_default "AI base URL / AI 接口地址" "$(get_existing AI_REVIEW_BASE_URL || true)")"
 [ -n "$base_url" ] || base_url="https://api.openai.com/v1"
-model="$(ask_default "AI model" "$(get_existing AI_REVIEW_MODEL || true)")"
+model="$(ask_default "AI model / AI 模型" "$(get_existing AI_REVIEW_MODEL || true)")"
 [ -n "$model" ] || model="gpt-4o-mini"
-ai_key="$(ask_default "AI API key" "$(get_existing AI_REVIEW_API_KEY || true)")"
-notify_on="$(ask_choice "Notify when" "always fail error never" "$(get_existing AI_REVIEW_NOTIFY_ON || true)")"
+ai_key="$(ask_default "AI API key / AI API 密钥" "$(get_existing AI_REVIEW_API_KEY || true)")"
+notify_on="$(ask_choice "Notify when / 何时通知" "always fail error never" "$(get_existing AI_REVIEW_NOTIFY_ON || true)")"
 [ -n "$notify_on" ] || notify_on="always"
-desktop_notify="$(ask_choice "Enable desktop notification" "true false" "$(get_existing AI_REVIEW_DESKTOP_NOTIFY || true)")"
+desktop_notify="$(ask_choice "Enable desktop notification / 启用桌面通知" "true false" "$(get_existing AI_REVIEW_DESKTOP_NOTIFY || true)")"
 [ -n "$desktop_notify" ] || desktop_notify="true"
 desktop_notify_seconds="$(get_existing AI_REVIEW_DESKTOP_NOTIFY_SECONDS || true)"
 [ -n "$desktop_notify_seconds" ] || desktop_notify_seconds="8"
-desktop_open_mode="$(ask_choice "Desktop report open mode" "native file" "$(get_existing AI_REVIEW_DESKTOP_OPEN_MODE || true)")"
+desktop_open_mode="$(ask_choice "Desktop report open mode / 桌面报告打开方式" "native file" "$(get_existing AI_REVIEW_DESKTOP_OPEN_MODE || true)")"
 [ -n "$desktop_open_mode" ] || desktop_open_mode="native"
-desktop_auto_open_report="$(ask_choice "Auto open report dialog on macOS" "false true" "$(get_existing AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT || true)")"
+desktop_auto_open_report="$(ask_choice "Auto open report dialog on macOS / macOS 自动弹出报告窗口" "false true" "$(get_existing AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT || true)")"
 [ -n "$desktop_auto_open_report" ] || desktop_auto_open_report="false"
-notify_type="$(ask_choice "Notification channel" "none feishu wechat dingtalk email" "none")"
+notify_type="$(ask_choice "Notification channel / 通知渠道" "none feishu wechat dingtalk email" "none")"
 
 case "$notify_type" in
   feishu)
-    feishu_webhook="$(ask_default "Feishu robot webhook" "$(get_existing AI_REVIEW_FEISHU_WEBHOOK || true)")"
+    feishu_webhook="$(ask_default "Feishu robot webhook / 飞书机器人 webhook" "$(get_existing AI_REVIEW_FEISHU_WEBHOOK || true)")"
     ;;
   wechat)
-    wechat_webhook="$(ask_default "WeCom robot webhook" "$(get_existing AI_REVIEW_WECHAT_WEBHOOK || true)")"
+    wechat_webhook="$(ask_default "WeCom robot webhook / 企业微信机器人 webhook" "$(get_existing AI_REVIEW_WECHAT_WEBHOOK || true)")"
     ;;
   dingtalk)
-    dingtalk_webhook="$(ask_default "DingTalk robot webhook" "$(get_existing AI_REVIEW_DINGTALK_WEBHOOK || true)")"
+    dingtalk_webhook="$(ask_default "DingTalk robot webhook / 钉钉机器人 webhook" "$(get_existing AI_REVIEW_DINGTALK_WEBHOOK || true)")"
     ;;
   email)
-    email_to="$(ask_default "Email recipient" "$(get_existing AI_REVIEW_EMAIL_TO || true)")"
-    email_from="$(ask_default "Email sender" "$(get_existing AI_REVIEW_EMAIL_FROM || true)")"
+    email_to="$(ask_default "Email recipient / 收件邮箱" "$(get_existing AI_REVIEW_EMAIL_TO || true)")"
+    email_from="$(ask_default "Email sender / 发件邮箱" "$(get_existing AI_REVIEW_EMAIL_FROM || true)")"
     [ -n "$email_from" ] || email_from="$email_to"
-    smtp_host="$(ask_default "SMTP host" "$(get_existing AI_REVIEW_SMTP_HOST || true)")"
+    smtp_host="$(ask_default "SMTP host / SMTP 服务器" "$(get_existing AI_REVIEW_SMTP_HOST || true)")"
     [ -n "$smtp_host" ] || smtp_host="smtp.163.com"
-    smtp_port="$(ask_default "SMTP port" "$(get_existing AI_REVIEW_SMTP_PORT || true)")"
+    smtp_port="$(ask_default "SMTP port / SMTP 端口" "$(get_existing AI_REVIEW_SMTP_PORT || true)")"
     [ -n "$smtp_port" ] || smtp_port="465"
-    smtp_username="$(ask_default "SMTP username" "$(get_existing AI_REVIEW_SMTP_USERNAME || true)")"
+    smtp_username="$(ask_default "SMTP username / SMTP 用户名" "$(get_existing AI_REVIEW_SMTP_USERNAME || true)")"
     [ -n "$smtp_username" ] || smtp_username="$email_from"
-    smtp_password="$(ask_default "SMTP password/auth code" "$(get_existing AI_REVIEW_SMTP_PASSWORD || true)")"
+    smtp_password="$(ask_default "SMTP password/auth code / SMTP 密码或授权码" "$(get_existing AI_REVIEW_SMTP_PASSWORD || true)")"
     smtp_ssl="$(ask_choice "SMTP SSL" "true false" "$(get_existing AI_REVIEW_SMTP_SSL || true)")"
     [ -n "$smtp_ssl" ] || smtp_ssl="true"
     smtp_starttls="$(ask_choice "SMTP STARTTLS" "true false" "$(get_existing AI_REVIEW_SMTP_STARTTLS || true)")"
@@ -217,15 +217,15 @@ esac
 write_config
 
 if [ "$scope" = "global" ]; then
-  printf '\nGit hooks installed for: global\n'
+  printf '\nGit hooks installed for / Git hooks 已安装到: global\n'
   printf '%s\n' "global core.hooksPath=$(git config --global core.hooksPath)"
 else
-  printf '\nGit hooks installed for: %s\n' "$repo_root"
+  printf '\nGit hooks installed for / Git hooks 已安装到: %s\n' "$repo_root"
   printf '%s\n' "core.hooksPath=$(git config core.hooksPath)"
 fi
-printf '%s\n' "Config written to: $env_file"
+printf '%s\n' "Config written to / 配置已写入: $env_file"
 if [ "$scope" = "global" ]; then
-  printf '%s\n' "Global config is stored in your user home and is not part of project commits."
+  printf '%s\n' "Global config is stored in your user home and is not part of project commits. / 全局配置保存在用户目录，不属于项目提交内容。"
 else
-  printf '%s\n' "Keep .ai-review.env ignored because it contains secrets."
+  printf '%s\n' "Keep .ai-review.env ignored because it contains secrets. / .ai-review.env 包含密钥，请保持忽略，不要提交。"
 fi

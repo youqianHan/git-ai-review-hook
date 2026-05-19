@@ -23,24 +23,24 @@ function Read-Choice {
         if ([string]::IsNullOrWhiteSpace($value)) { $value = $Default }
         $value = $value.Trim()
         if ($Allowed -contains $value) { return $value }
-        Write-Host "Invalid value: $value"
+        Write-Host "Invalid value / 无效输入: $value"
     }
 }
 
 $repoRoot = git rev-parse --show-toplevel 2>$null
 if ([string]::IsNullOrWhiteSpace($installScope)) {
     $defaultScope = if ($repoRoot) { "local" } else { "global" }
-    $installScope = Read-Choice "Install scope" @("local", "global") $defaultScope
+    $installScope = Read-Choice "Install scope / 安装范围" @("local", "global") $defaultScope
 }
 if ($installScope -notin @("local", "global")) {
-    throw "Invalid AI_REVIEW_HOOK_SCOPE: $installScope. Use local or global."
+    throw "Invalid AI_REVIEW_HOOK_SCOPE / 无效安装范围: $installScope. Use local or global / 请使用 local 或 global."
 }
 $hostName = $hostName.Trim().ToLowerInvariant()
 if ($hostName -notin @("github", "gitee")) {
-    throw "Invalid AI_REVIEW_HOOK_HOST: $hostName. Use github or gitee."
+    throw "Invalid AI_REVIEW_HOOK_HOST / 无效下载源: $hostName. Use github or gitee / 请使用 github 或 gitee."
 }
 if (-not $repoRoot -and $installScope -ne "global") {
-    throw "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global."
+    throw "Run this installer inside a Git repository, or set AI_REVIEW_HOOK_SCOPE=global. / 请在 Git 仓库内运行安装脚本，或设置 AI_REVIEW_HOOK_SCOPE=global。"
 }
 if ($repoRoot) {
     Set-Location $repoRoot
@@ -52,7 +52,7 @@ $zipFile = Join-Path $tmpDir "git-ai-review-hook.zip"
 
 try {
     if ($localZip) {
-        if (-not (Test-Path $localZip)) { throw "Local zip not found: $localZip" }
+        if (-not (Test-Path $localZip)) { throw "Local zip not found / 本地 zip 不存在: $localZip" }
         Copy-Item $localZip $zipFile
     } else {
         if ($hostName -eq "gitee") {
@@ -76,7 +76,7 @@ try {
         Select-Object -First 1
 
     if (-not $githooksDir) {
-        throw "Package does not contain githooks/."
+        throw "Package does not contain githooks/. / 安装包中未找到 githooks/ 目录。"
     }
 
     if ($installScope -eq "global") {

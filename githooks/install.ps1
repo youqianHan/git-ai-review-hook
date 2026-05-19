@@ -29,7 +29,7 @@ function Read-SecretText {
     )
 
     if (-not [string]::IsNullOrWhiteSpace($Existing)) {
-        $choice = Read-Host "$Prompt is already set. Press Enter to keep it, or type a new value"
+        $choice = Read-Host "$Prompt is already set. Press Enter to keep it, or type a new value / 已配置。直接回车保留，或输入新值"
         if ([string]::IsNullOrWhiteSpace($choice)) {
             return $Existing
         }
@@ -55,7 +55,7 @@ function Read-Choice {
         if ($Allowed -contains $value) {
             return $value
         }
-        Write-Host "Invalid value: $value"
+        Write-Host "Invalid value / 无效输入: $value"
     }
 }
 
@@ -85,7 +85,7 @@ function Write-EnvFile {
     )
 
     $lines = @(
-        "# AI review git hook config. Do not commit this file.",
+        "# AI review git hook config. Do not commit this file. / AI review Git Hook 配置文件，请勿提交。",
         "AI_REVIEW_ENABLED=true",
         "AI_REVIEW_API_KEY=$($Config.AI_REVIEW_API_KEY)",
         "AI_REVIEW_MODEL=$($Config.AI_REVIEW_MODEL)",
@@ -158,9 +158,9 @@ function Ensure-GitIgnore {
     }
 
     if ($changed) {
-        Write-Host "Updated .gitignore with .ai-review.env and /githooks/"
+        Write-Host "Updated .gitignore with .ai-review.env and /githooks/ / 已更新 .gitignore，忽略 .ai-review.env 和 /githooks/"
     } else {
-        Write-Host ".gitignore already ignores .ai-review.env and /githooks/"
+        Write-Host ".gitignore already ignores .ai-review.env and /githooks/ / .gitignore 已包含 .ai-review.env 和 /githooks/"
     }
 }
 
@@ -271,20 +271,20 @@ function Install-WithWinget {
 
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if (-not $winget) {
-        Write-Host "winget not found. Please install $Name manually."
+        Write-Host "winget not found. Please install $Name manually. / 未找到 winget，请手动安装 $Name。"
         return $false
     }
 
-    $answer = Read-Choice "Install missing dependency $Name with winget now" @("yes", "no") "yes"
+    $answer = Read-Choice "Install missing dependency $Name with winget now / 是否现在用 winget 安装缺失依赖 $Name" @("yes", "no") "yes"
     if ($answer -ne "yes") { return $false }
 
-    Write-Host "Installing $Name with winget..."
+    Write-Host "Installing $Name with winget... / 正在使用 winget 安装 $Name..."
     winget install --id $PackageId --exact --source winget --accept-package-agreements --accept-source-agreements
     return ($LASTEXITCODE -eq 0)
 }
 
 function Ensure-Dependencies {
-    Write-Host "Checking dependencies..."
+    Write-Host "Checking dependencies... / 正在检查依赖..."
 
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
     if (-not $git) {
@@ -294,7 +294,7 @@ function Ensure-Dependencies {
 
     $gitShell = Find-GitShell
     if (-not $gitShell) {
-        Write-Host "Git Bash shell was not found."
+        Write-Host "Git Bash shell was not found. / 未找到 Git Bash shell。"
         Install-WithWinget "Git.Git" "Git for Windows" | Out-Null
         $gitShell = Find-GitShell
     }
@@ -321,10 +321,10 @@ function Ensure-Dependencies {
 
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) {
-        Write-Host "curl.exe was not found. Windows 10+ usually includes curl. Please install curl or upgrade Windows."
+        Write-Host "curl.exe was not found. Windows 10+ usually includes curl. Please install curl or upgrade Windows. / 未找到 curl.exe，Windows 10+ 通常自带 curl，请安装 curl 或升级 Windows。"
     }
 
-    Write-Host "Dependency summary:"
+    Write-Host "Dependency summary / 依赖检查结果:"
     Write-Host "  git:    $($git.Source)"
     Write-Host "  sh:     $gitShell"
     Write-Host "  python: $python"
@@ -339,14 +339,14 @@ function Ensure-Dependencies {
 
     if ($missing.Count -gt 0) {
         Write-Host ""
-        Write-Host "Missing dependencies: $($missing -join ', ')"
-        Write-Host "Manual downloads:"
+        Write-Host "Missing dependencies / 缺失依赖: $($missing -join ', ')"
+        Write-Host "Manual downloads / 手动下载地址:"
         Write-Host "  Git:    https://git-scm.com/download/win"
         Write-Host "  Python: https://www.python.org/downloads/windows/"
-        throw "Install dependencies and re-run install.ps1"
+        throw "Install dependencies and re-run install.ps1 / 请安装依赖后重新运行 install.ps1"
     }
 
-    Write-Host "Dependencies OK."
+    Write-Host "Dependencies OK. / 依赖检查通过。"
     Write-Host ""
 }
 
@@ -354,13 +354,13 @@ $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = git rev-parse --show-toplevel 2>$null
 if ([string]::IsNullOrWhiteSpace($Scope)) {
     $defaultScope = if ($repoRoot) { "local" } else { "global" }
-    $Scope = Read-Choice "Install scope" @("local", "global") $defaultScope
+    $Scope = Read-Choice "Install scope / 安装范围" @("local", "global") $defaultScope
 }
 if ($Scope -notin @("local", "global")) {
-    throw "Invalid scope: $Scope. Use local or global."
+    throw "Invalid scope / 无效安装范围: $Scope. Use local or global / 请使用 local 或 global。"
 }
 if ($Scope -eq "local" -and -not $repoRoot) {
-    throw "Local install requires running inside a Git repository."
+    throw "Local install requires running inside a Git repository. / 当前项目安装需要在 Git 仓库内运行。"
 }
 
 if ($repoRoot) {
@@ -383,35 +383,35 @@ if ($Scope -eq "global") {
 $existing = Read-EnvFile -Path $envPath
 
 Write-Host ""
-Write-Host "Configure AI review hook for: $displayRoot"
-Write-Host "Press Enter to keep the value shown in brackets."
+Write-Host "Configure AI review hook for / 配置 AI review hook: $displayRoot"
+Write-Host "Press Enter to keep the value shown in brackets. / 直接回车保留方括号中的默认值。"
 Write-Host ""
 
 $config = [ordered]@{}
-$config.AI_REVIEW_BASE_URL = Read-Default "AI base URL" (Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" "https://api.openai.com/v1")
-$config.AI_REVIEW_MODEL = Read-Default "AI model" (Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini")
-$config.AI_REVIEW_API_KEY = Read-SecretText "AI API key" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
-$config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
-$config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
+$config.AI_REVIEW_BASE_URL = Read-Default "AI base URL / AI 接口地址" (Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" "https://api.openai.com/v1")
+$config.AI_REVIEW_MODEL = Read-Default "AI model / AI 模型" (Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini")
+$config.AI_REVIEW_API_KEY = Read-SecretText "AI API key / AI API 密钥" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
+$config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when / 何时通知" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
+$config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification / 启用桌面通知" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
 $config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS = Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY_SECONDS" "8"
-$config.AI_REVIEW_DESKTOP_OPEN_MODE = Read-Choice "Desktop report open mode" @("native", "file") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_OPEN_MODE" "native")
-$config.AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT = Read-Choice "Auto open report dialog on macOS" @("false", "true") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT" "false")
+$config.AI_REVIEW_DESKTOP_OPEN_MODE = Read-Choice "Desktop report open mode / 桌面报告打开方式" @("native", "file") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_OPEN_MODE" "native")
+$config.AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT = Read-Choice "Auto open report dialog on macOS / macOS 自动弹出报告窗口" @("false", "true") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_AUTO_OPEN_REPORT" "false")
 
-$notifyType = Read-Choice "Notification channel" @("none", "feishu", "wechat", "dingtalk", "email") "none"
+$notifyType = Read-Choice "Notification channel / 通知渠道" @("none", "feishu", "wechat", "dingtalk", "email") "none"
 
 if ($notifyType -eq "feishu") {
-    $config.AI_REVIEW_FEISHU_WEBHOOK = Read-Default "Feishu robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_FEISHU_WEBHOOK" "")
+    $config.AI_REVIEW_FEISHU_WEBHOOK = Read-Default "Feishu robot webhook / 飞书机器人 webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_FEISHU_WEBHOOK" "")
 } elseif ($notifyType -eq "wechat") {
-    $config.AI_REVIEW_WECHAT_WEBHOOK = Read-Default "WeCom robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_WECHAT_WEBHOOK" "")
+    $config.AI_REVIEW_WECHAT_WEBHOOK = Read-Default "WeCom robot webhook / 企业微信机器人 webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_WECHAT_WEBHOOK" "")
 } elseif ($notifyType -eq "dingtalk") {
-    $config.AI_REVIEW_DINGTALK_WEBHOOK = Read-Default "DingTalk robot webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_DINGTALK_WEBHOOK" "")
+    $config.AI_REVIEW_DINGTALK_WEBHOOK = Read-Default "DingTalk robot webhook / 钉钉机器人 webhook" (Get-ExistingOrDefault $existing "AI_REVIEW_DINGTALK_WEBHOOK" "")
 } elseif ($notifyType -eq "email") {
-    $config.AI_REVIEW_EMAIL_TO = Read-Default "Email recipient" (Get-ExistingOrDefault $existing "AI_REVIEW_EMAIL_TO" "")
-    $config.AI_REVIEW_EMAIL_FROM = Read-Default "Email sender" (Get-ExistingOrDefault $existing "AI_REVIEW_EMAIL_FROM" $config.AI_REVIEW_EMAIL_TO)
-    $config.AI_REVIEW_SMTP_HOST = Read-Default "SMTP host" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_HOST" "smtp.163.com")
-    $config.AI_REVIEW_SMTP_PORT = Read-Default "SMTP port" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_PORT" "465")
-    $config.AI_REVIEW_SMTP_USERNAME = Read-Default "SMTP username" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_USERNAME" $config.AI_REVIEW_EMAIL_FROM)
-    $config.AI_REVIEW_SMTP_PASSWORD = Read-SecretText "SMTP password/auth code" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_PASSWORD" "")
+    $config.AI_REVIEW_EMAIL_TO = Read-Default "Email recipient / 收件邮箱" (Get-ExistingOrDefault $existing "AI_REVIEW_EMAIL_TO" "")
+    $config.AI_REVIEW_EMAIL_FROM = Read-Default "Email sender / 发件邮箱" (Get-ExistingOrDefault $existing "AI_REVIEW_EMAIL_FROM" $config.AI_REVIEW_EMAIL_TO)
+    $config.AI_REVIEW_SMTP_HOST = Read-Default "SMTP host / SMTP 服务器" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_HOST" "smtp.163.com")
+    $config.AI_REVIEW_SMTP_PORT = Read-Default "SMTP port / SMTP 端口" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_PORT" "465")
+    $config.AI_REVIEW_SMTP_USERNAME = Read-Default "SMTP username / SMTP 用户名" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_USERNAME" $config.AI_REVIEW_EMAIL_FROM)
+    $config.AI_REVIEW_SMTP_PASSWORD = Read-SecretText "SMTP password/auth code / SMTP 密码或授权码" (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_PASSWORD" "")
     $config.AI_REVIEW_SMTP_SSL = Read-Choice "SMTP SSL" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_SSL" "true")
     $config.AI_REVIEW_SMTP_STARTTLS = Read-Choice "SMTP STARTTLS" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_SMTP_STARTTLS" "false")
 }
@@ -419,15 +419,15 @@ if ($notifyType -eq "feishu") {
 Write-EnvFile -Path $envPath -Config $config
 
 Write-Host ""
-Write-Host "Git hooks installed for: $displayRoot"
+Write-Host "Git hooks installed for / Git hooks 已安装到: $displayRoot"
 if ($Scope -eq "global") {
     Write-Host "global core.hooksPath=$(git config --global core.hooksPath)"
 } else {
     Write-Host "core.hooksPath=$(git config core.hooksPath)"
 }
-Write-Host "Config written to: $envPath"
+Write-Host "Config written to / 配置已写入: $envPath"
 if ($Scope -eq "local") {
-    Write-Host "Keep .ai-review.env ignored because it contains secrets."
+    Write-Host "Keep .ai-review.env ignored because it contains secrets. / .ai-review.env 包含密钥，请保持忽略，不要提交。"
 } else {
-    Write-Host "Global config is stored in your user home and is not part of project commits."
+    Write-Host "Global config is stored in your user home and is not part of project commits. / 全局配置保存在用户目录，不属于项目提交内容。"
 }
