@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $repoRoot = git rev-parse --show-toplevel 2>$null
 if (-not $repoRoot) {

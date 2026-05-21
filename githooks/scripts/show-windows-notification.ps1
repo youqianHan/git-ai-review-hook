@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Title = "AI Commit Review",
     [string]$TitleBase64 = "",
     [string]$Message = "Review finished.",
@@ -191,16 +191,15 @@ function Show-ReportWindow {
     $bodyFrame = New-Object System.Windows.Forms.Panel
     $bodyFrame.Dock = [System.Windows.Forms.DockStyle]::Fill
     $bodyFrame.BackColor = [System.Drawing.Color]::White
-    $bodyFrame.Padding = New-Object System.Windows.Forms.Padding(2)
+    $bodyFrame.Padding = New-Object System.Windows.Forms.Padding(10)
     $bodyFrame.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
     $bodyPanel.Controls.Add($bodyFrame)
 
-    $body = New-Object System.Windows.Forms.TextBox
-    $body.Multiline = $true
+    $body = New-Object System.Windows.Forms.RichTextBox
     $body.ReadOnly = $true
-    $body.ScrollBars = [System.Windows.Forms.ScrollBars]::Both
-    $body.WordWrap = $false
     $body.BorderStyle = [System.Windows.Forms.BorderStyle]::None
+    $body.ScrollBars = [System.Windows.Forms.RichTextBoxScrollBars]::ForcedVertical
+    $body.WordWrap = $true
     $body.Font = New-Object System.Drawing.Font("Consolas", 10)
     $body.ForeColor = [System.Drawing.Color]::FromArgb(17, 24, 39)
     $body.BackColor = [System.Drawing.Color]::White

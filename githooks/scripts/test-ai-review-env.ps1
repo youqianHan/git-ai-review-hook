@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$SendMail = "true",
     [string]$TestAi = "true"
 )
