@@ -279,6 +279,23 @@ function Test-PythonInGitShell {
     }
 }
 
+function Write-DependencyStep {
+    param(
+        [int]$Current,
+        [int]$Total,
+        [string]$Message
+    )
+
+    $percent = [int](($Current / $Total) * 100)
+    Write-Progress -Activity "Checking dependencies / 正在检查依赖" -Status $Message -PercentComplete $percent
+    Write-Host ""
+    Write-Host "[$Current/$Total] $Message"
+}
+
+function Complete-DependencyProgress {
+    Write-Progress -Activity "Checking dependencies / 正在检查依赖" -Completed
+}
+
 function Install-WithWinget {
     param(
         [string]$PackageId,
@@ -294,37 +311,61 @@ function Install-WithWinget {
     $answer = Read-Choice "Install missing dependency $Name with winget now / 是否现在用 winget 安装缺失依赖 $Name" @("yes", "no") "yes"
     if ($answer -ne "yes") { return $false }
 
-    Write-Host "Installing $Name with winget... / 正在使用 winget 安装 $Name..."
+    Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Installing $Name with winget... / 正在使用 winget 安装 $Name..." -PercentComplete 50
+    Write-Host "[install] Installing $Name with winget... / 正在使用 winget 安装 $Name..."
     winget install --id $PackageId --exact --source winget --accept-package-agreements --accept-source-agreements
-    return ($LASTEXITCODE -eq 0)
+    if ($LASTEXITCODE -eq 0) {
+        Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "$Name installed / $Name 安装完成" -PercentComplete 100
+        Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
+        Write-Host "[install] $Name installed. / $Name 安装完成。"
+        return $true
+    }
+
+    Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
+    Write-Host "[install] $Name installation failed with exit code $LASTEXITCODE. / $Name 安装失败，退出码 $LASTEXITCODE。"
+    return $false
 }
 
 function Ensure-Dependencies {
     Write-Host "Checking dependencies... / 正在检查依赖..."
 
+    Write-DependencyStep 1 5 "Checking Git... / 检查 Git..."
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
     if (-not $git) {
         Install-WithWinget "Git.Git" "Git for Windows" | Out-Null
         $git = Get-Command git.exe -ErrorAction SilentlyContinue
     }
+    if ($git) {
+        Write-Host "[ok] Git found / 已找到 Git: $($git.Source)"
+    }
 
+    Write-DependencyStep 2 5 "Checking Git Bash shell... / 检查 Git Bash shell..."
     $gitShell = Find-GitShell
     if (-not $gitShell) {
         Write-Host "Git Bash shell was not found. / 未找到 Git Bash shell。"
         Install-WithWinget "Git.Git" "Git for Windows" | Out-Null
         $gitShell = Find-GitShell
     }
+    if ($gitShell) {
+        Write-Host "[ok] Git Bash shell found / 已找到 Git Bash shell: $gitShell"
+    }
 
+    Write-DependencyStep 3 5 "Checking Python... / 检查 Python..."
     $python = Find-PythonCommand
     if (-not $python) {
         Install-WithWinget "Python.Python.3.13" "Python 3" | Out-Null
         $python = Find-PythonCommand
     }
+    if ($python) {
+        Write-Host "[ok] Python found / 已找到 Python: $python"
+    }
 
+    Write-DependencyStep 4 5 "Checking Python inside Git Bash... / 检查 Git Bash 内 Python..."
     $pythonInGitShell = $false
     if ($python -and $gitShell) {
         $pythonInGitShell = Test-PythonInGitShell -GitShell $gitShell -PythonCommand $python
         if (-not $pythonInGitShell) {
+            Write-Host "Python was found in PowerShell but not usable from Git Bash. Trying common commands... / PowerShell 中找到 Python，但 Git Bash 内不可用，正在尝试常见命令..."
             foreach ($candidate in @("python", "python3", "py -3")) {
                 if (Test-PythonInGitShell -GitShell $gitShell -PythonCommand $candidate) {
                     $python = $candidate
@@ -334,14 +375,22 @@ function Ensure-Dependencies {
             }
         }
     }
+    if ($pythonInGitShell) {
+        Write-Host "[ok] Python works in Git Bash / Git Bash 内 Python 可用: $python"
+    }
 
+    Write-DependencyStep 5 5 "Checking curl... / 检查 curl..."
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) {
         Write-Host "curl.exe was not found. / 未找到 curl.exe。"
         Install-WithWinget "cURL.cURL" "curl" | Out-Null
         $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     }
+    if ($curl) {
+        Write-Host "[ok] curl found / 已找到 curl: $($curl.Source)"
+    }
 
+    Write-Host ""
     Write-Host "Dependency summary / 依赖检查结果:"
     Write-Host "  git:    $($git.Source)"
     Write-Host "  sh:     $gitShell"
@@ -356,6 +405,7 @@ function Ensure-Dependencies {
     if (-not $curl) { $missing += "curl" }
 
     if ($missing.Count -gt 0) {
+        Complete-DependencyProgress
         Write-Host ""
         Write-Host "Missing dependencies / 缺失依赖: $($missing -join ', ')"
         Write-Host "Manual downloads / 手动下载地址:"
@@ -365,6 +415,7 @@ function Ensure-Dependencies {
         throw "Install dependencies and re-run install.ps1 / 请安装依赖后重新运行 install.ps1"
     }
 
+    Complete-DependencyProgress
     Write-Host "Dependencies OK. / 依赖检查通过。"
     Write-Host ""
 }
