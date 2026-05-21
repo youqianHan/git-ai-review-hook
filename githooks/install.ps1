@@ -262,6 +262,17 @@ function Find-PythonCommand {
     return $null
 }
 
+function Refresh-CurrentProcessPath {
+    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $paths = @()
+    if (-not [string]::IsNullOrWhiteSpace($machinePath)) { $paths += $machinePath }
+    if (-not [string]::IsNullOrWhiteSpace($userPath)) { $paths += $userPath }
+    if ($paths.Count -gt 0) {
+        $env:Path = ($paths -join ";")
+    }
+}
+
 function Test-PythonInGitShell {
     param(
         [string]$GitShell,
@@ -277,6 +288,64 @@ function Test-PythonInGitShell {
     } catch {
         return $false
     }
+}
+
+function Install-PythonFromDomesticMirror {
+    $version = "3.13.0"
+    $fileName = if ([Environment]::Is64BitOperatingSystem) {
+        "python-$version-amd64.exe"
+    } else {
+        "python-$version.exe"
+    }
+
+    $urls = @(
+        "https://mirrors.tuna.tsinghua.edu.cn/python/$version/$fileName",
+        "https://mirrors.huaweicloud.com/python/$version/$fileName"
+    )
+
+    $installer = Join-Path $env:TEMP $fileName
+    foreach ($url in $urls) {
+        try {
+            Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Downloading Python from domestic mirror... / 正在从国内镜像下载 Python..." -PercentComplete 20
+            Write-Host "[install] Downloading Python from domestic mirror / 正在从国内镜像下载 Python:"
+            Write-Host "          $url"
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+
+            if (-not (Test-Path $installer) -or ((Get-Item $installer).Length -lt 1048576)) {
+                Write-Host "[install] Downloaded file is invalid, trying next mirror. / 下载文件无效，尝试下一个镜像。"
+                continue
+            }
+
+            Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Installing Python from downloaded installer... / 正在安装下载的 Python..." -PercentComplete 70
+            Write-Host "[install] Installing Python from downloaded installer... / 正在安装下载的 Python..."
+            $arguments = @(
+                "/quiet",
+                "InstallAllUsers=0",
+                "PrependPath=1",
+                "Include_launcher=1",
+                "Include_pip=1"
+            )
+            $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
+            if ($process.ExitCode -eq 0) {
+                Refresh-CurrentProcessPath
+                Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Python installed from domestic mirror / Python 国内镜像安装完成" -PercentComplete 100
+                Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
+                Write-Host "[install] Python installed from domestic mirror. / Python 已通过国内镜像安装完成。"
+                return $true
+            }
+
+            Write-Host "[install] Python installer exited with code $($process.ExitCode), trying next mirror. / Python 安装程序退出码 $($process.ExitCode)，尝试下一个镜像。"
+        } catch {
+            Write-Host "[install] Failed to use mirror, trying next one. / 当前镜像失败，尝试下一个。"
+            Write-Host "          $($_.Exception.Message)"
+        } finally {
+            Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
+    return $false
 }
 
 function Write-DependencyStep {
@@ -353,7 +422,11 @@ function Ensure-Dependencies {
     Write-DependencyStep 3 5 "Checking Python... / 检查 Python..."
     $python = Find-PythonCommand
     if (-not $python) {
-        Install-WithWinget "Python.Python.3.13" "Python 3" | Out-Null
+        if (-not (Install-WithWinget "Python.Python.3.13" "Python 3")) {
+            Write-Host "[install] winget Python install failed or was skipped. Switching to domestic mirrors... / winget 安装 Python 失败或已跳过，切换到国内镜像..."
+            Install-PythonFromDomesticMirror | Out-Null
+        }
+        Refresh-CurrentProcessPath
         $python = Find-PythonCommand
     }
     if ($python) {
@@ -411,6 +484,7 @@ function Ensure-Dependencies {
         Write-Host "Manual downloads / 手动下载地址:"
         Write-Host "  Git:    https://git-scm.com/download/win"
         Write-Host "  Python: https://www.python.org/downloads/windows/"
+        Write-Host "  Python mirror / Python 国内镜像: https://mirrors.tuna.tsinghua.edu.cn/python/"
         Write-Host "  curl:   https://curl.se/windows/"
         throw "Install dependencies and re-run install.ps1 / 请安装依赖后重新运行 install.ps1"
     }
