@@ -24,7 +24,7 @@ run_python() {
   cmd="$1"
   shift
   # Intentionally expand a trusted command selected by python_cmd so "py -3" works.
-  $cmd "$@"
+  PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $cmd "$@"
 }
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -85,12 +85,7 @@ utf8_base64() {
     printf '%s\n' ""
     return 0
   fi
-  AI_REVIEW_B64_VALUE="$value" run_python "$py_cmd" - <<'PY'
-import base64
-import os
-
-print(base64.b64encode(os.environ.get("AI_REVIEW_B64_VALUE", "").encode("utf-8")).decode("ascii"))
-PY
+  printf '%s' "$value" | PYTHONIOENCODING=utf-8 PYTHONUTF8=1 $py_cmd -c 'import base64, sys; print(base64.b64encode(sys.stdin.buffer.read()).decode("ascii"))'
 }
 
 chat_completions_url() {
