@@ -1,6 +1,6 @@
 # Security
 
-This tool sends staged git diffs to the configured OpenAI-compatible API endpoint.
+This tool sends staged git diffs, and optionally related project context, to the configured OpenAI-compatible API endpoint.
 
 Before enabling it, confirm that your organization permits source code review through the selected AI provider.
 
@@ -17,7 +17,24 @@ The installer adds `.ai-review.env` and `/githooks/` to the target repository `.
 
 ## Data Sent To AI
 
-The hook sends only `git diff --cached` content. It does not send the full repository unless the staged diff contains it.
+The hook always sends `git diff --cached` content.
+
+By default, `AI_REVIEW_CONTEXT_ENABLED=true` also sends a limited set of related project files to help the model understand the changed code. This may include files such as `AGENTS.md`, `README.md`, `pom.xml`, changed source files, nearby Java classes, Mapper XML files, DTO/DAO/Service classes, and imported project classes.
+
+Context collection is bounded by:
+
+```bash
+AI_REVIEW_CONTEXT_MAX_BYTES=80000
+AI_REVIEW_CONTEXT_MAX_FILE_BYTES=20000
+```
+
+The hook skips obvious secret files, `.env` files, build outputs, dependency directories, binary files, and common private-key/token filenames. This is a best-effort filter, not a security boundary.
+
+To disable project context and send only the staged diff:
+
+```bash
+AI_REVIEW_CONTEXT_ENABLED=false
+```
 
 Avoid staging secrets. Consider running a secret scanner before commit in high-sensitivity repositories.
 
@@ -41,4 +58,5 @@ When reporting bugs, remove secrets from logs before sharing:
 .git/ai-review/jobs/<job-id>/background.log
 .git/ai-review/response.json
 .git/ai-review/request.json
+.git/ai-review/context.txt
 ```

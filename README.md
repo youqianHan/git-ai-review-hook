@@ -111,6 +111,16 @@ AI_REVIEW_BASE_URL=https://example.com/v1
 AI_REVIEW_ASYNC=true
 ```
 
+默认会随 staged diff 发送少量相关项目上下文，帮助 AI 判断调用方、接口契约、Mapper/XML、配置和 DTO 等影响范围：
+
+```bash
+AI_REVIEW_CONTEXT_ENABLED=true
+AI_REVIEW_CONTEXT_MAX_BYTES=80000
+AI_REVIEW_CONTEXT_MAX_FILE_BYTES=20000
+```
+
+上下文会写入 `.git/ai-review/context.txt` 方便排障。它只用于辅助审查本次 diff；脚本会跳过 `.env`、密钥类文件、构建产物和二进制文件。
+
 `AI_REVIEW_BASE_URL` 支持两种格式：
 
 ```bash

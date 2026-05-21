@@ -50,6 +50,9 @@ load_config "$repo_root/.ai-review.env"
 : "${AI_REVIEW_MODEL:=gpt-4o-mini}"
 : "${AI_REVIEW_BASE_URL:=https://api.openai.com/v1/chat/completions}"
 : "${AI_REVIEW_MAX_DIFF_BYTES:=120000}"
+: "${AI_REVIEW_CONTEXT_ENABLED:=true}"
+: "${AI_REVIEW_CONTEXT_MAX_BYTES:=80000}"
+: "${AI_REVIEW_CONTEXT_MAX_FILE_BYTES:=20000}"
 : "${AI_REVIEW_TIMEOUT_SECONDS:=90}"
 : "${AI_REVIEW_REPORT_DIR:=.git/ai-review}"
 : "${AI_REVIEW_NOTIFY_ON:=always}"
@@ -74,6 +77,7 @@ mkdir -p "$AI_REVIEW_REPORT_DIR"
 report_file="$AI_REVIEW_REPORT_DIR/last-review.md"
 diff_file="${AI_REVIEW_DIFF_FILE:-$AI_REVIEW_REPORT_DIR/staged.diff}"
 build_file="$AI_REVIEW_REPORT_DIR/build.log"
+context_file="$AI_REVIEW_REPORT_DIR/context.txt"
 request_file="$AI_REVIEW_REPORT_DIR/request.json"
 response_file="$AI_REVIEW_REPORT_DIR/response.json"
 notification_file="$AI_REVIEW_REPORT_DIR/notification.txt"
@@ -598,17 +602,188 @@ if [ -z "$PY_CMD" ]; then
   exit 0
 fi
 
-run_python "$PY_CMD" - "$diff_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
+if [ "$AI_REVIEW_CONTEXT_ENABLED" = "true" ]; then
+  run_python "$PY_CMD" - "$diff_file" "$context_file" "$repo_root" "$AI_REVIEW_CONTEXT_MAX_BYTES" "$AI_REVIEW_CONTEXT_MAX_FILE_BYTES" <<'PY'
+import pathlib
+import re
+import subprocess
+import sys
+
+diff_path = pathlib.Path(sys.argv[1])
+context_path = pathlib.Path(sys.argv[2])
+repo_root = pathlib.Path(sys.argv[3]).resolve()
+max_bytes = int(sys.argv[4])
+max_file_bytes = int(sys.argv[5])
+
+diff_text = diff_path.read_text(encoding="utf-8", errors="replace")
+
+def norm_path(value):
+    value = value.strip().replace("\\", "/")
+    if value.startswith("a/") or value.startswith("b/"):
+        value = value[2:]
+    if not value or value == "/dev/null":
+        return ""
+    parts = []
+    for part in value.split("/"):
+        if part in ("", "."):
+            continue
+        if part == "..":
+            return ""
+        parts.append(part)
+    return "/".join(parts)
+
+changed = []
+for line in diff_text.splitlines():
+    if line.startswith("+++ "):
+        path = norm_path(line[4:].split("\t", 1)[0])
+        if path:
+            changed.append(path)
+    elif line.startswith("--- "):
+        path = norm_path(line[4:].split("\t", 1)[0])
+        if path:
+            changed.append(path)
+
+def add_unique(target, path):
+    path = norm_path(path)
+    if path and path not in target:
+        target.append(path)
+
+files = []
+for path in changed:
+    add_unique(files, path)
+
+for root_file in ("AGENTS.md", "README.md", "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "package.json"):
+    if (repo_root / root_file).is_file():
+        add_unique(files, root_file)
+
+changed_set = list(files)
+for path in changed_set:
+    p = repo_root / path
+    parent = p.parent
+    stem = p.stem
+    suffix = p.suffix.lower()
+    if not p.exists():
+        continue
+    if suffix == ".java":
+        for candidate in (
+            f"{stem}Mapper.xml",
+            f"{stem}Dao.xml",
+            f"{stem}Repository.xml",
+            f"{stem}Service.java",
+            f"{stem}ServiceImpl.java",
+            f"I{stem}Service.java",
+            f"{stem}Mapper.java",
+            f"{stem}Dao.java",
+            f"{stem}Repository.java",
+            f"{stem}DTO.java",
+            f"{stem}Dto.java",
+            f"{stem}VO.java",
+            f"{stem}Vo.java",
+        ):
+            for base in (parent, repo_root / "src/main/resources/mapper"):
+                candidate_path = base / candidate
+                if candidate_path.is_file():
+                    add_unique(files, str(candidate_path.relative_to(repo_root)).replace("\\", "/"))
+        for neighbor in sorted(parent.glob("*.java"))[:20]:
+            add_unique(files, str(neighbor.relative_to(repo_root)).replace("\\", "/"))
+    elif suffix == ".xml" and "mapper" in path.lower():
+        for java_file in repo_root.glob(f"src/main/java/**/*{stem}.java"):
+            add_unique(files, str(java_file.relative_to(repo_root)).replace("\\", "/"))
+
+for match in re.finditer(r"^\s*import\s+([a-zA-Z_][\w]*(?:\.[a-zA-Z_][\w]*)+);", diff_text, re.M):
+    imported = match.group(1)
+    if imported.startswith(("java.", "javax.", "jakarta.", "org.springframework.", "lombok.")):
+        continue
+    relative = pathlib.Path("src/main/java") / pathlib.Path(*imported.split(".")).with_suffix(".java")
+    if (repo_root / relative).is_file():
+        add_unique(files, str(relative).replace("\\", "/"))
+
+skip_parts = {
+    ".git", ".idea", ".vscode", "target", "build", "dist", "node_modules",
+    ".gradle", ".mvn", "out", "coverage", ".git-ai-review-hook"
+}
+skip_suffixes = {
+    ".class", ".jar", ".war", ".zip", ".gz", ".7z", ".rar", ".png", ".jpg", ".jpeg",
+    ".gif", ".webp", ".ico", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".exe", ".dll", ".so", ".dylib"
+}
+secret_patterns = re.compile(r"(^|/)(\.env|.*secret.*|.*password.*|.*credential.*|.*token.*|.*private.*|id_rsa|id_dsa)(\.|$|/)", re.I)
+
+def is_safe_text_file(path):
+    if any(part in skip_parts for part in pathlib.PurePosixPath(path).parts):
+        return False
+    if secret_patterns.search(path):
+        return False
+    full = (repo_root / path).resolve()
+    try:
+        full.relative_to(repo_root)
+    except ValueError:
+        return False
+    if not full.is_file():
+        return False
+    if full.suffix.lower() in skip_suffixes:
+        return False
+    try:
+        sample = full.read_bytes()[:4096]
+    except OSError:
+        return False
+    return b"\x00" not in sample
+
+sections = []
+used = 0
+included = []
+for path in files:
+    if not is_safe_text_file(path):
+        continue
+    full = repo_root / path
+    try:
+        raw = full.read_bytes()
+    except OSError:
+        continue
+    truncated = len(raw) > max_file_bytes
+    raw = raw[:max_file_bytes]
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        text = raw.decode("utf-8", errors="replace")
+    body = f"\n--- FILE: {path} ---\n{text}"
+    if truncated:
+        body += "\n... 文件内容已按 AI_REVIEW_CONTEXT_MAX_FILE_BYTES 截断\n"
+    body_bytes = len(body.encode("utf-8", errors="replace"))
+    if used + body_bytes > max_bytes:
+        break
+    sections.append(body)
+    included.append(path)
+    used += body_bytes
+
+if sections:
+    header = [
+        "项目上下文（仅用于理解本次 staged diff 的影响范围，不要审查无关旧代码）",
+        f"包含文件数: {len(included)}",
+        f"上下文字节数: {used}/{max_bytes}",
+        "",
+    ]
+    context_path.write_text("\n".join(header) + "\n".join(sections).strip() + "\n", encoding="utf-8")
+else:
+    context_path.write_text("项目上下文: 未收集到可用上下文。\n", encoding="utf-8")
+PY
+else
+  printf '%s\n' "项目上下文: 已禁用 AI_REVIEW_CONTEXT_ENABLED=false。" > "$context_file"
+fi
+
+run_python "$PY_CMD" - "$diff_file" "$context_file" "$request_file" "$AI_REVIEW_MODEL" <<'PY'
 import json
 import pathlib
 import sys
 
 diff_path = pathlib.Path(sys.argv[1])
-request_path = pathlib.Path(sys.argv[2])
-model = sys.argv[3]
+context_path = pathlib.Path(sys.argv[2])
+request_path = pathlib.Path(sys.argv[3])
+model = sys.argv[4]
 diff_text = diff_path.read_text(encoding="utf-8", errors="replace")
+context_text = context_path.read_text(encoding="utf-8", errors="replace")
 
-system_prompt = """你是一名资深代码审查工程师。只审查用户提供的 staged git diff，不要评论与本次 diff 无关的旧代码。
+system_prompt = """你是一名资深代码审查工程师。只审查用户提供的 staged git diff。项目上下文只用于理解本次 diff 的影响范围，不要评论与本次 diff 无关的旧代码。
 
 审查优先级从高到低：
 1. 明显编译错误、语法错误、类型错误、缺失导入、错误方法签名。
@@ -627,6 +802,8 @@ system_prompt = """你是一名资深代码审查工程师。只审查用户提�
 - 不要为了凑数输出泛泛建议；没有问题就写“- 无”。
 - 每条问题尽量包含文件/代码片段线索、风险说明和建议修复方向。
 - 如果仅凭 diff 无法确定上下文，请明确说明“基于 diff 推断”，不要假装确定。
+- 如果项目上下文显示本次 diff 会影响调用方、接口实现、Mapper/XML、配置、DTO 或依赖契约，请结合上下文指出风险。
+- 不要因为上下文中的历史代码风格、旧问题或未修改代码本身判定 FAIL；只有它直接影响本次 diff 时才可以提及。
 
 必须使用中文，并严格使用以下顶层格式，不要增加额外顶层标题：
 结论: PASS 或 FAIL
@@ -644,7 +821,11 @@ user_prompt = f"""请 review 以下暂存区代码变更。
 请判断是否存在明显编译错误、运行时异常、逻辑问题、数据一致性风险、安全风险和接口兼容性问题，并给出必要的优化建议。
 优化建议中请额外关注：代码是否可以在不改变业务逻辑的前提下重构得更简洁，是否存在可抽离的公共方法、重复流程、过长方法、职责混杂，以及是否有适合参考设计模式改善扩展性的场景。
 这些重构和设计模式建议都属于非阻断建议，不应影响 PASS/FAIL 结论。
-请只基于 diff 输出，不要重复解释审查规则。
+请以 staged diff 为主，结合项目上下文判断影响范围，不要重复解释审查规则。
+
+<project_context>
+{context_text}
+</project_context>
 
 ```diff
 {diff_text}

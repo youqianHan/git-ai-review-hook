@@ -113,6 +113,9 @@ function Write-EnvFile {
         "AI_REVIEW_FAIL_ON_AI_ERROR=false",
         "AI_REVIEW_FAIL_ON_FINDINGS=false",
         "AI_REVIEW_MAX_DIFF_BYTES=120000",
+        "AI_REVIEW_CONTEXT_ENABLED=$($Config.AI_REVIEW_CONTEXT_ENABLED)",
+        "AI_REVIEW_CONTEXT_MAX_BYTES=$($Config.AI_REVIEW_CONTEXT_MAX_BYTES)",
+        "AI_REVIEW_CONTEXT_MAX_FILE_BYTES=$($Config.AI_REVIEW_CONTEXT_MAX_FILE_BYTES)",
         "AI_REVIEW_TIMEOUT_SECONDS=90",
         "",
         "AI_REVIEW_NOTIFY_ON=$($Config.AI_REVIEW_NOTIFY_ON)",
@@ -586,6 +589,9 @@ $config = [ordered]@{}
 $config.AI_REVIEW_BASE_URL = Read-Default "AI base URL / AI 接口地址" (Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" "https://api.openai.com/v1")
 $config.AI_REVIEW_MODEL = Read-Default "AI model / AI 模型" (Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini")
 $config.AI_REVIEW_API_KEY = Read-SecretText "AI API key / AI API 密钥" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
+$config.AI_REVIEW_CONTEXT_ENABLED = Read-Choice "Send related project context / 发送相关项目上下文" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_CONTEXT_ENABLED" "true")
+$config.AI_REVIEW_CONTEXT_MAX_BYTES = Read-Default "Max context bytes / 最大上下文字节数" (Get-ExistingOrDefault $existing "AI_REVIEW_CONTEXT_MAX_BYTES" "80000")
+$config.AI_REVIEW_CONTEXT_MAX_FILE_BYTES = Read-Default "Max bytes per context file / 单个上下文文件最大字节数" (Get-ExistingOrDefault $existing "AI_REVIEW_CONTEXT_MAX_FILE_BYTES" "20000")
 $config.AI_REVIEW_NOTIFY_ON = Read-Choice "Notify when / 何时通知" @("always", "fail", "error", "never") (Get-ExistingOrDefault $existing "AI_REVIEW_NOTIFY_ON" "always")
 $config.AI_REVIEW_DESKTOP_NOTIFY = Read-Choice "Enable desktop notification / 启用桌面通知" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY" "true")
 $config.AI_REVIEW_DESKTOP_NOTIFY_SECONDS = Get-ExistingOrDefault $existing "AI_REVIEW_DESKTOP_NOTIFY_SECONDS" "8"

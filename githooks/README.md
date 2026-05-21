@@ -236,9 +236,14 @@ AI_REVIEW_REQUIRE_API=false
 AI_REVIEW_FAIL_ON_AI_ERROR=false
 AI_REVIEW_FAIL_ON_FINDINGS=false
 AI_REVIEW_MAX_DIFF_BYTES=120000
+AI_REVIEW_CONTEXT_ENABLED=true
+AI_REVIEW_CONTEXT_MAX_BYTES=80000
+AI_REVIEW_CONTEXT_MAX_FILE_BYTES=20000
 AI_REVIEW_TIMEOUT_SECONDS=90
 AI_REVIEW_ASYNC=true
 ```
+
+`AI_REVIEW_CONTEXT_ENABLED=true` 时，脚本会根据 staged diff 自动收集少量相关项目上下文，例如被修改文件、项目说明、构建文件、同包 Java 类、Mapper XML、DTO/DAO/Service 等。上下文只辅助判断本次 diff 的影响范围，并写入 `.git/ai-review/context.txt`。
 
 如果需要恢复同步执行：
 
