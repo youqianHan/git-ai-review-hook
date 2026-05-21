@@ -337,7 +337,9 @@ function Ensure-Dependencies {
 
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) {
-        Write-Host "curl.exe was not found. Windows 10+ usually includes curl. Please install curl or upgrade Windows. / 未找到 curl.exe，Windows 10+ 通常自带 curl，请安装 curl 或升级 Windows。"
+        Write-Host "curl.exe was not found. / 未找到 curl.exe。"
+        Install-WithWinget "cURL.cURL" "curl" | Out-Null
+        $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     }
 
     Write-Host "Dependency summary / 依赖检查结果:"
@@ -359,6 +361,7 @@ function Ensure-Dependencies {
         Write-Host "Manual downloads / 手动下载地址:"
         Write-Host "  Git:    https://git-scm.com/download/win"
         Write-Host "  Python: https://www.python.org/downloads/windows/"
+        Write-Host "  curl:   https://curl.se/windows/"
         throw "Install dependencies and re-run install.ps1 / 请安装依赖后重新运行 install.ps1"
     }
 
