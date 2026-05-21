@@ -253,6 +253,39 @@ function Test-PythonCommand {
     }
 }
 
+function Get-DownloadRegion {
+    $override = $env:AI_REVIEW_DOWNLOAD_REGION
+    if (-not [string]::IsNullOrWhiteSpace($override)) {
+        $normalized = $override.Trim().ToLowerInvariant()
+        if ($normalized -in @("cn", "china", "domestic", "mainland")) {
+            return "cn"
+        }
+        if ($normalized -in @("global", "intl", "international", "official")) {
+            return "global"
+        }
+    }
+
+    try {
+        if ([System.Globalization.RegionInfo]::CurrentRegion.TwoLetterISORegionName -eq "CN") {
+            return "cn"
+        }
+    } catch {}
+
+    try {
+        if ([System.Globalization.CultureInfo]::CurrentUICulture.Name -match "zh-CN") {
+            return "cn"
+        }
+    } catch {}
+
+    try {
+        if ([System.TimeZoneInfo]::Local.Id -match "China|Shanghai|Beijing|Chongqing|Urumqi") {
+            return "cn"
+        }
+    } catch {}
+
+    return "global"
+}
+
 function Find-PythonCommand {
     foreach ($candidate in @("python", "python3", "py -3")) {
         if (Test-PythonCommand $candidate) {
@@ -260,6 +293,27 @@ function Find-PythonCommand {
         }
     }
     return $null
+}
+
+function Get-PythonInstallerUrls {
+    param(
+        [string]$Version,
+        [string]$FileName
+    )
+
+    $official = "https://www.python.org/ftp/python/$Version/$FileName"
+    $domestic = @(
+        "https://mirrors.tuna.tsinghua.edu.cn/python/$Version/$FileName",
+        "https://mirrors.huaweicloud.com/python/$Version/$FileName"
+    )
+
+    if ((Get-DownloadRegion) -eq "cn") {
+        Write-Host "[install] Download region: China. Domestic mirrors will be tried first. / 下载区域：中国，优先使用国内镜像。"
+        return @($domestic + $official)
+    }
+
+    Write-Host "[install] Download region: global. Official source will be tried first. / 下载区域：国际，优先使用官方源。"
+    return @(($official) + $domestic)
 }
 
 function Refresh-CurrentProcessPath {
@@ -290,7 +344,7 @@ function Test-PythonInGitShell {
     }
 }
 
-function Install-PythonFromDomesticMirror {
+function Install-PythonFromInstallerUrl {
     $version = "3.13.0"
     $fileName = if ([Environment]::Is64BitOperatingSystem) {
         "python-$version-amd64.exe"
@@ -298,22 +352,19 @@ function Install-PythonFromDomesticMirror {
         "python-$version.exe"
     }
 
-    $urls = @(
-        "https://mirrors.tuna.tsinghua.edu.cn/python/$version/$fileName",
-        "https://mirrors.huaweicloud.com/python/$version/$fileName"
-    )
+    $urls = Get-PythonInstallerUrls -Version $version -FileName $fileName
 
     $installer = Join-Path $env:TEMP $fileName
     foreach ($url in $urls) {
         try {
-            Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Downloading Python from domestic mirror... / 正在从国内镜像下载 Python..." -PercentComplete 20
-            Write-Host "[install] Downloading Python from domestic mirror / 正在从国内镜像下载 Python:"
+            Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Downloading Python installer... / 正在下载 Python 安装包..." -PercentComplete 20
+            Write-Host "[install] Downloading Python installer / 正在下载 Python 安装包:"
             Write-Host "          $url"
             [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
             Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
 
             if (-not (Test-Path $installer) -or ((Get-Item $installer).Length -lt 1048576)) {
-                Write-Host "[install] Downloaded file is invalid, trying next mirror. / 下载文件无效，尝试下一个镜像。"
+                Write-Host "[install] Downloaded file is invalid, trying next source. / 下载文件无效，尝试下一个下载源。"
                 continue
             }
 
@@ -329,15 +380,15 @@ function Install-PythonFromDomesticMirror {
             $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
             if ($process.ExitCode -eq 0) {
                 Refresh-CurrentProcessPath
-                Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Python installed from domestic mirror / Python 国内镜像安装完成" -PercentComplete 100
+                Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "Python installed / Python 安装完成" -PercentComplete 100
                 Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
-                Write-Host "[install] Python installed from domestic mirror. / Python 已通过国内镜像安装完成。"
+                Write-Host "[install] Python installed. / Python 安装完成。"
                 return $true
             }
 
-            Write-Host "[install] Python installer exited with code $($process.ExitCode), trying next mirror. / Python 安装程序退出码 $($process.ExitCode)，尝试下一个镜像。"
+            Write-Host "[install] Python installer exited with code $($process.ExitCode), trying next source. / Python 安装程序退出码 $($process.ExitCode)，尝试下一个下载源。"
         } catch {
-            Write-Host "[install] Failed to use mirror, trying next one. / 当前镜像失败，尝试下一个。"
+            Write-Host "[install] Failed to use this source, trying next one. / 当前下载源失败，尝试下一个。"
             Write-Host "          $($_.Exception.Message)"
         } finally {
             Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
@@ -423,8 +474,8 @@ function Ensure-Dependencies {
     $python = Find-PythonCommand
     if (-not $python) {
         if (-not (Install-WithWinget "Python.Python.3.13" "Python 3")) {
-            Write-Host "[install] winget Python install failed or was skipped. Switching to domestic mirrors... / winget 安装 Python 失败或已跳过，切换到国内镜像..."
-            Install-PythonFromDomesticMirror | Out-Null
+            Write-Host "[install] winget Python install failed or was skipped. Trying installer download sources... / winget 安装 Python 失败或已跳过，尝试安装包下载源..."
+            Install-PythonFromInstallerUrl | Out-Null
         }
         Refresh-CurrentProcessPath
         $python = Find-PythonCommand
