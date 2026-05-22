@@ -28,6 +28,7 @@ Set-Location $tmp
 
 $inputText = @(
     "local",
+    "openai",
     "https://example.com/v1",
     "gpt-test",
     "test-key",
@@ -76,6 +77,7 @@ Set-Location $bootstrapTmp
 $env:AI_REVIEW_HOOK_ZIP = $zip
 $env:AI_REVIEW_HOOK_SCOPE = "local"
 $bootstrapInput = @(
+    "openai",
     "https://example.com/v1",
     "gpt-test",
     "test-key",
@@ -114,6 +116,7 @@ try {
 
     $nonGitGlobalInput = @(
         "global",
+        "openai",
         "https://example.com/v1",
         "gpt-test",
         "test-key",
@@ -176,6 +179,7 @@ try {
     $env:AI_REVIEW_HOOK_ZIP = $zip
     $env:AI_REVIEW_HOOK_SCOPE = "global"
     $globalInput = @(
+        "openai",
         "https://example.com/v1",
         "gpt-test",
         "test-key",

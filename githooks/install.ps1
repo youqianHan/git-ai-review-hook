@@ -205,6 +205,61 @@ function Get-ExistingOrDefault {
     return $Default
 }
 
+function Get-AiProviderPreset {
+    param([string]$Provider)
+
+    switch ($Provider) {
+        "openai" {
+            return @{
+                BaseUrl = "https://api.openai.com/v1"
+                Model = "gpt-4o-mini"
+            }
+        }
+        "deepseek" {
+            return @{
+                BaseUrl = "https://api.deepseek.com/chat/completions"
+                Model = "deepseek-chat"
+            }
+        }
+        "kimi" {
+            return @{
+                BaseUrl = "https://api.moonshot.ai/v1/chat/completions"
+                Model = "kimi-k2-0711-preview"
+            }
+        }
+        "glm" {
+            return @{
+                BaseUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+                Model = "glm-4-flash"
+            }
+        }
+        "qwen" {
+            return @{
+                BaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"
+                Model = "qwen-plus"
+            }
+        }
+        "siliconflow" {
+            return @{
+                BaseUrl = "https://api.siliconflow.cn/v1/chat/completions"
+                Model = "deepseek-ai/DeepSeek-V3"
+            }
+        }
+        "doubao" {
+            return @{
+                BaseUrl = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+                Model = "doubao-seed-1-6-250615"
+            }
+        }
+        default {
+            return @{
+                BaseUrl = "https://api.openai.com/v1"
+                Model = "gpt-4o-mini"
+            }
+        }
+    }
+}
+
 function Find-GitShell {
     $candidates = New-Object System.Collections.Generic.List[string]
 
@@ -754,8 +809,16 @@ Write-Host "Press Enter to keep the value shown in brackets. / 直接回车保�
 Write-Host ""
 
 $config = [ordered]@{}
-$config.AI_REVIEW_BASE_URL = Read-Default "AI base URL / AI 接口地址" (Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" "https://api.openai.com/v1")
-$config.AI_REVIEW_MODEL = Read-Default "AI model / AI 模型" (Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini")
+$provider = Read-Choice "AI provider preset / AI 厂商预设" @("openai", "deepseek", "kimi", "glm", "qwen", "siliconflow", "doubao", "custom") "openai"
+$preset = Get-AiProviderPreset -Provider $provider
+$baseUrlDefault = Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" $preset.BaseUrl
+$modelDefault = Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" $preset.Model
+if ($provider -eq "custom") {
+    $baseUrlDefault = Get-ExistingOrDefault $existing "AI_REVIEW_BASE_URL" "https://api.openai.com/v1"
+    $modelDefault = Get-ExistingOrDefault $existing "AI_REVIEW_MODEL" "gpt-4o-mini"
+}
+$config.AI_REVIEW_BASE_URL = Read-Default "AI base URL / AI 接口地址" $baseUrlDefault
+$config.AI_REVIEW_MODEL = Read-Default "AI model / AI 模型" $modelDefault
 $config.AI_REVIEW_API_KEY = Read-SecretText "AI API key / AI API 密钥" (Get-ExistingOrDefault $existing "AI_REVIEW_API_KEY" "")
 $config.AI_REVIEW_CONTEXT_ENABLED = Read-Choice "Send related project context / 发送相关项目上下文" @("true", "false") (Get-ExistingOrDefault $existing "AI_REVIEW_CONTEXT_ENABLED" "true")
 $config.AI_REVIEW_CONTEXT_MAX_BYTES = Read-Default "Max context bytes / 最大上下文字节数" (Get-ExistingOrDefault $existing "AI_REVIEW_CONTEXT_MAX_BYTES" "80000")

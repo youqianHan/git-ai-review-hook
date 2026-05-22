@@ -42,6 +42,32 @@ ask_choice() {
   done
 }
 
+provider_base_url() {
+  case "$1" in
+    openai) printf '%s\n' "https://api.openai.com/v1" ;;
+    deepseek) printf '%s\n' "https://api.deepseek.com/chat/completions" ;;
+    kimi) printf '%s\n' "https://api.moonshot.ai/v1/chat/completions" ;;
+    glm) printf '%s\n' "https://open.bigmodel.cn/api/paas/v4/chat/completions" ;;
+    qwen) printf '%s\n' "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions" ;;
+    siliconflow) printf '%s\n' "https://api.siliconflow.cn/v1/chat/completions" ;;
+    doubao) printf '%s\n' "https://ark.cn-beijing.volces.com/api/v3/chat/completions" ;;
+    *) printf '%s\n' "https://api.openai.com/v1" ;;
+  esac
+}
+
+provider_model() {
+  case "$1" in
+    openai) printf '%s\n' "gpt-4o-mini" ;;
+    deepseek) printf '%s\n' "deepseek-chat" ;;
+    kimi) printf '%s\n' "kimi-k2-0711-preview" ;;
+    glm) printf '%s\n' "glm-4-flash" ;;
+    qwen) printf '%s\n' "qwen-plus" ;;
+    siliconflow) printf '%s\n' "deepseek-ai/DeepSeek-V3" ;;
+    doubao) printf '%s\n' "doubao-seed-1-6-250615" ;;
+    *) printf '%s\n' "gpt-4o-mini" ;;
+  esac
+}
+
 write_config() {
   {
     printf '%s\n' "# AI review git hook config. Do not commit this file. / AI review Git Hook 配置文件，请勿提交。"
@@ -171,10 +197,21 @@ else
 fi
 printf 'Press Enter to keep the value shown in brackets. / 直接回车保留方括号中的默认值。\n\n'
 
-base_url="$(ask_default "AI base URL / AI 接口地址" "$(get_existing AI_REVIEW_BASE_URL || true)")"
-[ -n "$base_url" ] || base_url="https://api.openai.com/v1"
-model="$(ask_default "AI model / AI 模型" "$(get_existing AI_REVIEW_MODEL || true)")"
-[ -n "$model" ] || model="gpt-4o-mini"
+provider="$(ask_choice "AI provider preset / AI 厂商预设" "openai deepseek kimi glm qwen siliconflow doubao custom" "openai")"
+base_url_default="$(get_existing AI_REVIEW_BASE_URL || true)"
+model_default="$(get_existing AI_REVIEW_MODEL || true)"
+if [ -z "$base_url_default" ]; then
+  base_url_default="$(provider_base_url "$provider")"
+fi
+if [ -z "$model_default" ]; then
+  model_default="$(provider_model "$provider")"
+fi
+if [ "$provider" = "custom" ]; then
+  [ -n "$base_url_default" ] || base_url_default="https://api.openai.com/v1"
+  [ -n "$model_default" ] || model_default="gpt-4o-mini"
+fi
+base_url="$(ask_default "AI base URL / AI 接口地址" "$base_url_default")"
+model="$(ask_default "AI model / AI 模型" "$model_default")"
 ai_key="$(ask_default "AI API key / AI API 密钥" "$(get_existing AI_REVIEW_API_KEY || true)")"
 context_enabled="$(ask_choice "Send related project context / 发送相关项目上下文" "true false" "$(get_existing AI_REVIEW_CONTEXT_ENABLED || true)")"
 [ -n "$context_enabled" ] || context_enabled="true"

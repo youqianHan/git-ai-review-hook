@@ -1,12 +1,12 @@
 # AI Review Git Hook
 
-一个可复用的 AI 代码审查 Git Hook。它会在 `git commit` 时读取本次暂存区 diff，异步调用 OpenAI 兼容接口做代码 review，并把结果写入本地日志，也可以通过邮件、企业微信或钉钉通知。
+一个可复用的 AI 代码审查 Git Hook。它会在 `git commit` 时读取本次暂存区 diff，并可附带少量相关项目上下文，异步调用 OpenAI 兼容接口做代码 review。结果会写入本地日志，也可以通过桌面通知、飞书、邮件、企业微信或钉钉通知。
 
 默认是异步执行：commit 会很快完成，AI review 和通知在后台继续运行。
 
 ## 功能特性
 
-- 只审查 `git diff --cached`，也就是本次提交的暂存区代码。
+- 以 `git diff --cached` 为主审查对象，可自动附带有限项目上下文辅助判断影响范围。
 - 支持 OpenAI-compatible `/v1/chat/completions` 接口。
 - 默认不执行 Maven、Gradle、npm 等本地构建命令。
 - 支持桌面通知、飞书、邮件、企业微信、钉钉通知。
@@ -37,7 +37,10 @@ Windows 支持右下角原生小窗提示，鼠标悬停时不会自动消失，
 
 ## 一键安装
 
-默认安装到当前项目，只对当前仓库生效；在目标项目根目录执行。
+安装时会先让你选择安装范围：
+
+- `global`：全局安装，对当前用户的所有 Git 仓库生效。默认选项，可在任意目录执行。
+- `local`：当前项目安装，只对当前仓库生效。需要在 Git 仓库目录内执行。
 
 Windows PowerShell：
 
@@ -70,14 +73,14 @@ curl -fsSL https://gitee.com/han_you_jin/git-ai-review-hook/raw/main/bootstrap.s
 AI_REVIEW_HOOK_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/youqianHan/git-ai-review-hook/main/bootstrap.sh | sh
 ```
 
-Gitee 镜像不支持 GitHub 风格的 latest release 下载；当 `AI_REVIEW_HOOK_HOST=gitee` 且未指定版本时，脚本会下载当前内置的最新稳定版本。指定版本时使用：
+Gitee 镜像安装时，如果未指定版本，脚本会 clone Gitee `main` 分支的最新代码。指定版本、分支或 tag 时使用：
 
 ```bash
-AI_REVIEW_HOOK_HOST=gitee AI_REVIEW_HOOK_REPO=han_you_jin/git-ai-review-hook AI_REVIEW_HOOK_VERSION=v0.1.6 \
+AI_REVIEW_HOOK_HOST=gitee AI_REVIEW_HOOK_REPO=han_you_jin/git-ai-review-hook AI_REVIEW_HOOK_VERSION=v0.1.10 \
 curl -fsSL https://gitee.com/han_you_jin/git-ai-review-hook/raw/main/bootstrap.sh | sh
 ```
 
-全局安装，对当前用户的所有 Git 仓库生效：
+如果需要非交互式指定全局安装，也可以提前设置环境变量：
 
 ```powershell
 $env:AI_REVIEW_HOOK_SCOPE="global"
@@ -99,6 +102,7 @@ AI_REVIEW_HOOK_ZIP=/path/to/git-ai-review-hook.zip sh bootstrap.sh
 安装脚本会：
 
 - 检查 Git、Git Bash、curl，以及 Git Bash 内可实际执行的 Python 3。
+- 在 Windows 上会尝试自动安装缺失依赖，并把 Git/Python/curl 常见安装目录自动加入当前用户 PATH。
 - 当前项目安装：设置 `git config core.hooksPath githooks`，并把 `.ai-review.env`、`/githooks/` 加入 `.gitignore`。
 - 全局安装：设置 `git config --global core.hooksPath <用户目录下的 githooks>`。
 - 交互式生成或更新本地配置文件。
@@ -126,7 +130,7 @@ sh githooks/install.sh
 ```bash
 AI_REVIEW_ENABLED=true
 AI_REVIEW_API_KEY=replace_with_your_api_key
-AI_REVIEW_MODEL=gpt-5.5
+AI_REVIEW_MODEL=gpt-4o-mini
 AI_REVIEW_BASE_URL=https://example.com/v1
 AI_REVIEW_ASYNC=true
 ```
@@ -141,12 +145,26 @@ AI_REVIEW_CONTEXT_MAX_FILE_BYTES=20000
 
 上下文会写入 `.git/ai-review/context.txt` 方便排障。它只用于辅助审查本次 diff；脚本会跳过 `.env`、密钥类文件、构建产物和二进制文件。
 
-`AI_REVIEW_BASE_URL` 支持两种格式：
+`AI_REVIEW_BASE_URL` 可以填写基础路径，也可以填写完整 `chat/completions` 地址：
 
 ```bash
 AI_REVIEW_BASE_URL=https://example.com/v1
 AI_REVIEW_BASE_URL=https://example.com/v1/chat/completions
 ```
+
+脚本会自动把常见基础路径补成 `/chat/completions`，例如 `/v1`、`/compatible-mode/v1`、`/api/paas/v4`、`/api/v3`。
+
+安装脚本内置了常见厂商预设，选择后会自动带出接口地址和默认模型，仍然可以手动修改：
+
+| 厂商 | Base URL 示例 | 默认模型示例 |
+| --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| DeepSeek | `https://api.deepseek.com/chat/completions` | `deepseek-chat` |
+| Kimi / Moonshot | `https://api.moonshot.ai/v1/chat/completions` | `kimi-k2-0711-preview` |
+| GLM / 智谱 | `https://open.bigmodel.cn/api/paas/v4/chat/completions` | `glm-4-flash` |
+| Qwen / 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen-plus` |
+| SiliconFlow | `https://api.siliconflow.cn/v1/chat/completions` | `deepseek-ai/DeepSeek-V3` |
+| Doubao / 火山方舟 | `https://ark.cn-beijing.volces.com/api/v3/chat/completions` | `doubao-seed-1-6-250615` |
 
 ## 推荐通知方式
 
@@ -240,6 +258,7 @@ AI_REVIEW_NOTIFY_ON=never   # 不通知
 
 ```text
 .git/ai-review/last-review.md
+.git/ai-review/context.txt
 .git/ai-review/request.json
 .git/ai-review/response.json
 .git/ai-review/jobs/<job-id>/background.log
@@ -283,24 +302,30 @@ macOS / Linux：
 sh githooks/uninstall.sh
 ```
 
-卸载脚本会移除：
+本地安装的卸载脚本会移除当前仓库配置：
 
 ```bash
 git config core.hooksPath
 ```
 
-但会保留本地 `githooks/` 和 `.ai-review.env`，如不再需要可手动删除。
+全局安装如需停用，执行：
+
+```bash
+git config --global --unset core.hooksPath
+```
+
+卸载脚本会保留本地 `githooks/` 和 `.ai-review.env`，如不再需要可手动删除。
 
 ## 安全说明
 
-该工具会把本次暂存区 diff 发送给你配置的 AI 服务。使用前请确认你的团队允许把代码变更发送到该服务。
+该工具会把本次暂存区 diff 发送给你配置的 AI 服务。默认还会发送少量相关项目上下文，用于判断本次变更影响范围。使用前请确认你的团队允许把代码变更和相关上下文发送到该服务。
 
 不要提交：
 
 - `.ai-review.env`
 - API Key
 - SMTP 授权码
-- 企业微信或钉钉 webhook
+- 飞书、企业微信或钉钉 webhook
 
 ## English Summary
 

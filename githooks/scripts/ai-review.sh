@@ -98,7 +98,10 @@ chat_completions_url() {
     */chat/completions)
       printf '%s\n' "$url"
       ;;
-    */v1)
+    */v1 | */compatible-mode/v1 | */api/paas/v4 | */api/v3 | */v1beta/openai)
+      printf '%s/chat/completions\n' "$url"
+      ;;
+    https://api.deepseek.com | https://api.moonshot.ai)
       printf '%s/chat/completions\n' "$url"
       ;;
     *)

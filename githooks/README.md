@@ -1,10 +1,10 @@
 # AI Review Git Hook 使用文档
 
-这套 Git Hook 用于在 `git commit` 时把暂存区代码变更发送给 AI 做 review，检查明显编译错误、运行时风险、逻辑问题，并给出优化建议。
+这套 Git Hook 用于在 `git commit` 时把暂存区代码变更发送给 AI 做 review，并可附带少量相关项目上下文，检查明显编译错误、运行时风险、逻辑问题，并给出优化建议。
 
 默认行为：
 
-- 只 review `git diff --cached`，也就是本次 commit 暂存区内容。
+- 以 `git diff --cached` 为主审查对象，可自动附带有限项目上下文辅助判断影响范围。
 - 不执行 `mvn`、`gradle`、`npm` 等本地构建命令。
 - 默认后台异步执行 AI review，commit 不等待网络请求。
 - AI 接口失败时只提示，不阻止 commit。
@@ -52,7 +52,7 @@ sh githooks/install.sh
 git config core.hooksPath githooks
 ```
 
-如果选择 `global`，会改为执行：
+安装时会先选择安装范围。如果选择 `global`，会改为执行：
 
 ```bash
 git config --global core.hooksPath <用户目录下的 githooks>
@@ -74,7 +74,12 @@ git config --global core.hooksPath <用户目录下的 githooks>
 AI base URL
 AI model
 AI API key
+Send related project context
+Max context bytes
+Max bytes per context file
 Notify when
+Enable desktop notification
+Desktop report open mode
 Notification channel
 ```
 
@@ -82,7 +87,7 @@ Notification channel
 
 ```bash
 AI_REVIEW_BASE_URL=https://win.gxapi.site/v1
-AI_REVIEW_MODEL=gpt-5.5
+AI_REVIEW_MODEL=gpt-4o-mini
 AI_REVIEW_API_KEY=你的API_KEY
 AI_REVIEW_NOTIFY_ON=always
 ```
@@ -94,7 +99,20 @@ AI_REVIEW_BASE_URL=https://win.gxapi.site/v1
 AI_REVIEW_BASE_URL=https://win.gxapi.site/v1/chat/completions
 ```
 
-Hook 会自动把 `/v1` 转成 `/v1/chat/completions`。
+Hook 会自动把常见基础路径补成 `/chat/completions`，例如 `/v1`、`/compatible-mode/v1`、`/api/paas/v4`、`/api/v3`。
+
+安装脚本支持厂商预设：
+
+```text
+openai       https://api.openai.com/v1
+deepseek     https://api.deepseek.com/chat/completions
+kimi         https://api.moonshot.ai/v1/chat/completions
+glm          https://open.bigmodel.cn/api/paas/v4/chat/completions
+qwen         https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+siliconflow  https://api.siliconflow.cn/v1/chat/completions
+doubao       https://ark.cn-beijing.volces.com/api/v3/chat/completions
+custom       自定义地址
+```
 
 ## 通知配置
 
@@ -181,6 +199,7 @@ IDEA 提交成功时，Git hook 的 stdout/stderr 不一定明显展示。通常
 
 ```text
 .git/ai-review/staged.diff       # 本次暂存区 diff
+.git/ai-review/context.txt       # 发给 AI 的相关项目上下文
 .git/ai-review/request.json      # 发给 AI 的请求
 .git/ai-review/response.json     # AI 原始响应
 .git/ai-review/last-review.md    # AI review 文本结果
@@ -214,7 +233,7 @@ $headers = @{
   "Content-Type" = "application/json"
 }
 $body = @{
-  model = "gpt-5.5"
+  model = "gpt-4o-mini"
   messages = @(@{ role = "user"; content = "只回复 OK" })
   temperature = 0
 } | ConvertTo-Json -Depth 5
@@ -308,10 +327,16 @@ sh githooks/install.sh
 git config core.hooksPath
 ```
 
-应该输出：
+当前项目安装时应该输出：
 
 ```text
 githooks
+```
+
+全局安装时检查：
+
+```bash
+git config --global core.hooksPath
 ```
 
 如果没有，重新安装：
