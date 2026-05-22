@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="860" height="420" viewBox="0 0 860 420" role="img" aria-label="Windows 桌面通知示例">
+  <rect width="860" height="420" fill="#111827"/>
+  <rect x="42" y="40" width="776" height="320" rx="8" fill="#1f2937"/>
+  <rect x="80" y="86" width="500" height="34" rx="4" fill="#374151"/>
+  <rect x="80" y="138" width="620" height="18" rx="3" fill="#374151"/>
+  <rect x="80" y="174" width="568" height="18" rx="3" fill="#374151"/>
+  <rect x="80" y="210" width="476" height="18" rx="3" fill="#374151"/>
+  <rect x="452" y="238" width="330" height="126" rx="0" fill="#ffffff"/>
+  <rect x="452" y="238" width="6" height="126" fill="#dc2626"/>
+  <text x="478" y="274" font-family="Microsoft YaHei UI, Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#111827">AI Commit Review</text>
+  <rect x="688" y="254" width="52" height="24" rx="2" fill="#fef2f2"/>
+  <text x="714" y="271" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" fill="#dc2626">FAIL</text>
+  <text x="760" y="271" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="15" fill="#64748b">x</text>
+  <text x="478" y="306" font-family="Microsoft YaHei UI, Segoe UI, Arial, sans-serif" font-size="14" fill="#374151">发现 1 个阻断问题，点击查看完整报告。</text>
+  <text x="478" y="340" font-family="Microsoft YaHei UI, Segoe UI, Arial, sans-serif" font-size="12" fill="#64748b">Click to open report</text>
+  <text x="664" y="340" font-family="Microsoft YaHei UI, Segoe UI, Arial, sans-serif" font-size="12" fill="#64748b">Hover to keep open</text>
+</svg>

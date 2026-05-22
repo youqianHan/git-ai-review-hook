@@ -15,6 +15,26 @@
 - 日志和报告写入 `.git/ai-review/`。
 - 提供诊断脚本，检查 Git Bash、Python、AI API、SMTP 等环境。
 
+## 功能效果展示
+
+### 错误提示
+
+AI 会把明显编译错误、运行时风险、数据一致性问题、安全风险等放到“阻断问题”里，并给出验证建议。
+
+![AI Commit Review 错误提示示例](docs/images/review-fail.svg)
+
+### 代码优化建议
+
+非阻断建议会关注可维护性和重构方向，例如抽离公共方法、减少重复逻辑、简化啰嗦写法，或在合适场景下参考策略模式、模板方法、责任链等设计模式。
+
+![AI Commit Review 代码优化建议示例](docs/images/review-suggestions.svg)
+
+### 桌面通知
+
+Windows 支持右下角原生小窗提示，鼠标悬停时不会自动消失，点击后打开内置报告窗口。
+
+![Windows 桌面通知示例](docs/images/desktop-notification.svg)
+
 ## 一键安装
 
 默认安装到当前项目，只对当前仓库生效；在目标项目根目录执行。
