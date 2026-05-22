@@ -325,9 +325,128 @@ function Refresh-CurrentProcessPath {
     $paths = @()
     if (-not [string]::IsNullOrWhiteSpace($machinePath)) { $paths += $machinePath }
     if (-not [string]::IsNullOrWhiteSpace($userPath)) { $paths += $userPath }
-    if ($paths.Count -gt 0) {
-        $env:Path = ($paths -join ";")
+    $commonPaths = @(
+        "$env:ProgramFiles\Git\cmd",
+        "$env:ProgramFiles\Git\bin",
+        "${env:ProgramFiles(x86)}\Git\cmd",
+        "${env:ProgramFiles(x86)}\Git\bin",
+        "$env:LOCALAPPDATA\Programs\Python\Python313",
+        "$env:LOCALAPPDATA\Programs\Python\Python313\Scripts",
+        "$env:LOCALAPPDATA\Programs\Python\Python312",
+        "$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
+        "$env:LOCALAPPDATA\Programs\Python\Python311",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts"
+    )
+    foreach ($path in $commonPaths) {
+        if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path $path)) {
+            $paths += $path
+        }
     }
+    if ($paths.Count -gt 0) {
+        $env:Path = (($paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique) -join ";")
+    }
+}
+
+function Add-UserPathEntries {
+    param([string[]]$Entries)
+
+    $existing = [Environment]::GetEnvironmentVariable("Path", "User")
+    $items = New-Object System.Collections.Generic.List[string]
+    if (-not [string]::IsNullOrWhiteSpace($existing)) {
+        foreach ($item in ($existing -split ";")) {
+            if (-not [string]::IsNullOrWhiteSpace($item)) {
+                $items.Add($item.Trim())
+            }
+        }
+    }
+
+    $changed = $false
+    foreach ($entry in $Entries) {
+        if ([string]::IsNullOrWhiteSpace($entry) -or -not (Test-Path $entry)) {
+            continue
+        }
+        $normalized = (Resolve-Path -LiteralPath $entry).Path.TrimEnd("\")
+        $exists = $false
+        foreach ($item in $items) {
+            if ($item.TrimEnd("\").Equals($normalized, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $exists = $true
+                break
+            }
+        }
+        if (-not $exists) {
+            $items.Add($normalized)
+            $changed = $true
+            Write-Host "[install] Added to user PATH / 已添加到用户 PATH: $normalized"
+        }
+    }
+
+    if ($changed) {
+        [Environment]::SetEnvironmentVariable("Path", ($items -join ";"), "User")
+        Refresh-CurrentProcessPath
+    }
+}
+
+function Get-KnownDependencyPathEntries {
+    $entries = New-Object System.Collections.Generic.List[string]
+
+    $common = @(
+        "$env:ProgramFiles\Git\cmd",
+        "$env:ProgramFiles\Git\bin",
+        "${env:ProgramFiles(x86)}\Git\cmd",
+        "${env:ProgramFiles(x86)}\Git\bin",
+        "$env:LOCALAPPDATA\Programs\Python\Python313",
+        "$env:LOCALAPPDATA\Programs\Python\Python313\Scripts",
+        "$env:LOCALAPPDATA\Programs\Python\Python312",
+        "$env:LOCALAPPDATA\Programs\Python\Python312\Scripts",
+        "$env:LOCALAPPDATA\Programs\Python\Python311",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\Scripts"
+    )
+    foreach ($path in $common) {
+        if (-not [string]::IsNullOrWhiteSpace($path) -and (Test-Path $path)) {
+            $entries.Add($path)
+        }
+    }
+
+    try {
+        $gitCommand = Get-Command git.exe -ErrorAction SilentlyContinue
+        if ($gitCommand -and $gitCommand.Source) {
+            $gitCmdDir = Split-Path -Parent $gitCommand.Source
+            $gitRoot = Split-Path -Parent $gitCmdDir
+            $entries.Add($gitCmdDir)
+            $entries.Add((Join-Path $gitRoot "bin"))
+        }
+    } catch {}
+
+    try {
+        $pythonCommand = Get-Command python.exe -ErrorAction SilentlyContinue
+        if ($pythonCommand -and $pythonCommand.Source -and $pythonCommand.Source -notmatch "\\WindowsApps\\") {
+            $pythonDir = Split-Path -Parent $pythonCommand.Source
+            $entries.Add($pythonDir)
+            $entries.Add((Join-Path $pythonDir "Scripts"))
+        }
+    } catch {}
+
+    try {
+        $python3Command = Get-Command python3.exe -ErrorAction SilentlyContinue
+        if ($python3Command -and $python3Command.Source -and $python3Command.Source -notmatch "\\WindowsApps\\") {
+            $python3Dir = Split-Path -Parent $python3Command.Source
+            $entries.Add($python3Dir)
+            $entries.Add((Join-Path $python3Dir "Scripts"))
+        }
+    } catch {}
+
+    try {
+        $curlCommand = Get-Command curl.exe -ErrorAction SilentlyContinue
+        if ($curlCommand -and $curlCommand.Source -and $curlCommand.Source -notmatch "\\Windows\\System32\\") {
+            $entries.Add((Split-Path -Parent $curlCommand.Source))
+        }
+    } catch {}
+
+    return $entries.ToArray()
+}
+
+function Sync-DependencyPathsToUserPath {
+    Add-UserPathEntries -Entries (Get-KnownDependencyPathEntries)
 }
 
 function Test-PythonInGitShell {
@@ -438,6 +557,7 @@ function Install-WithWinget {
     Write-Host "[install] Installing $Name with winget... / 正在使用 winget 安装 $Name..."
     winget install --id $PackageId --exact --source winget --accept-package-agreements --accept-source-agreements
     if ($LASTEXITCODE -eq 0) {
+        Refresh-CurrentProcessPath
         Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Status "$Name installed / $Name 安装完成" -PercentComplete 100
         Write-Progress -Activity "Installing dependencies / 正在安装依赖" -Completed
         Write-Host "[install] $Name installed. / $Name 安装完成。"
@@ -449,13 +569,62 @@ function Install-WithWinget {
     return $false
 }
 
+function Ensure-PythonUsableFromGitBash {
+    param(
+        [string]$GitShell,
+        [string]$PythonCommand
+    )
+
+    if ([string]::IsNullOrWhiteSpace($GitShell)) {
+        return @{
+            Python = $PythonCommand
+            Works = $false
+        }
+    }
+
+    foreach ($candidate in @($PythonCommand, "python", "python3", "py -3")) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-PythonInGitShell -GitShell $GitShell -PythonCommand $candidate)) {
+            return @{
+                Python = $candidate
+                Works = $true
+            }
+        }
+    }
+
+    Write-Host "Python is not usable from Git Bash. Trying to repair Python installation... / Git Bash 内 Python 不可用，正在尝试自动修复 Python 安装..."
+    if (-not (Install-WithWinget "Python.Python.3.13" "Python 3")) {
+        Write-Host "[install] Trying Python installer download sources... / 正在尝试 Python 安装包下载源..."
+        Install-PythonFromInstallerUrl | Out-Null
+    }
+
+    Refresh-CurrentProcessPath
+    Sync-DependencyPathsToUserPath
+    $python = Find-PythonCommand
+    foreach ($candidate in @($python, "python", "python3", "py -3")) {
+        if (-not [string]::IsNullOrWhiteSpace($candidate) -and (Test-PythonInGitShell -GitShell $GitShell -PythonCommand $candidate)) {
+            return @{
+                Python = $candidate
+                Works = $true
+            }
+        }
+    }
+
+    return @{
+        Python = $python
+        Works = $false
+    }
+}
+
 function Ensure-Dependencies {
     Write-Host "Checking dependencies... / 正在检查依赖..."
+    Sync-DependencyPathsToUserPath
 
     Write-DependencyStep 1 5 "Checking Git... / 检查 Git..."
     $git = Get-Command git.exe -ErrorAction SilentlyContinue
     if (-not $git) {
         Install-WithWinget "Git.Git" "Git for Windows" | Out-Null
+        Refresh-CurrentProcessPath
+        Sync-DependencyPathsToUserPath
         $git = Get-Command git.exe -ErrorAction SilentlyContinue
     }
     if ($git) {
@@ -467,6 +636,8 @@ function Ensure-Dependencies {
     if (-not $gitShell) {
         Write-Host "Git Bash shell was not found. / 未找到 Git Bash shell。"
         Install-WithWinget "Git.Git" "Git for Windows" | Out-Null
+        Refresh-CurrentProcessPath
+        Sync-DependencyPathsToUserPath
         $gitShell = Find-GitShell
     }
     if ($gitShell) {
@@ -481,6 +652,7 @@ function Ensure-Dependencies {
             Install-PythonFromInstallerUrl | Out-Null
         }
         Refresh-CurrentProcessPath
+        Sync-DependencyPathsToUserPath
         $python = Find-PythonCommand
     }
     if ($python) {
@@ -490,17 +662,9 @@ function Ensure-Dependencies {
     Write-DependencyStep 4 5 "Checking Python inside Git Bash... / 检查 Git Bash 内 Python..."
     $pythonInGitShell = $false
     if ($python -and $gitShell) {
-        $pythonInGitShell = Test-PythonInGitShell -GitShell $gitShell -PythonCommand $python
-        if (-not $pythonInGitShell) {
-            Write-Host "Python was found in PowerShell but not usable from Git Bash. Trying common commands... / PowerShell 中找到 Python，但 Git Bash 内不可用，正在尝试常见命令..."
-            foreach ($candidate in @("python", "python3", "py -3")) {
-                if (Test-PythonInGitShell -GitShell $gitShell -PythonCommand $candidate) {
-                    $python = $candidate
-                    $pythonInGitShell = $true
-                    break
-                }
-            }
-        }
+        $pythonCheck = Ensure-PythonUsableFromGitBash -GitShell $gitShell -PythonCommand $python
+        $python = $pythonCheck.Python
+        $pythonInGitShell = [bool]$pythonCheck.Works
     }
     if ($pythonInGitShell) {
         Write-Host "[ok] Python works in Git Bash / Git Bash 内 Python 可用: $python"
@@ -511,6 +675,8 @@ function Ensure-Dependencies {
     if (-not $curl) {
         Write-Host "curl.exe was not found. / 未找到 curl.exe。"
         Install-WithWinget "cURL.cURL" "curl" | Out-Null
+        Refresh-CurrentProcessPath
+        Sync-DependencyPathsToUserPath
         $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     }
     if ($curl) {
@@ -540,6 +706,8 @@ function Ensure-Dependencies {
         Write-Host "  Python: https://www.python.org/downloads/windows/"
         Write-Host "  Python mirror / Python 国内镜像: https://mirrors.tuna.tsinghua.edu.cn/python/"
         Write-Host "  curl:   https://curl.se/windows/"
+        Write-Host ""
+        Write-Host "Tip / 提示: If dependencies were just installed, close this PowerShell window and run the installer again. / 如果依赖刚安装完成，请关闭当前 PowerShell 窗口后重新运行安装。"
         throw "Install dependencies and re-run install.ps1 / 请安装依赖后重新运行 install.ps1"
     }
 
